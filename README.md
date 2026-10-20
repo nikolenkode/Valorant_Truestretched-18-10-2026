@@ -1,10 +1,10 @@
 <p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
 
-# VALORANT Custom Resolution
+# NVIDIA Custom Resolution
 
 > Stretched resolutions on NVIDIA GPUs without the Control Panel maze: no black bars, one confirmation, automatic rollback, and your brightness and color settings stay put.
 
-**English** | [Русский](README.ru.md)
+**English** | [Русский](RREADME.md)
 
 ## What it is
 
