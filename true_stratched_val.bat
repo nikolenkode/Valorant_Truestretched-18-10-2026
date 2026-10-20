@@ -33,6 +33,7 @@ exit /b
 #  custom_res.bat /ru        Russian (Русский)
 #  custom_res.bat /restore   only re-enable the monitors disabled by a previous run
 #  custom_res.bat /nodisable do not disable the monitors (for troubleshooting)
+#  custom_res.bat /nocolors  do not save/restore brightness, contrast, gamma, vibrance, hue (for troubleshooting)
 #  custom_res.bat /nostretch do not stretch (apply the mode 1:1, the monitor decides what to do with it)
 #
 #  The same engine is used by the GUI (CustomRes.exe, see CustomResGui.cs / build.bat).
@@ -158,6 +159,15 @@ namespace CustomRes
             A("sc_other", "other ({0})", "другое ({0})");
             A("layout_fixed", "  Display layout restored: the other monitors are back where they were relative to the primary display.", "  Расположение мониторов восстановлено: остальные мониторы стоят там же относительно основного.");
 
+            A("col_saved", "  Color settings saved ({0}); they are put back if the driver resets them.", "  Настройки цвета сохранены ({0}); если драйвер их сбросит, они будут возвращены.");
+            A("col_none", "  Could not read the color settings, so they will not be restored.", "  Не удалось прочитать настройки цвета, поэтому восстанавливать их не буду.");
+            A("col_restored", "  The driver reset the color settings, put back: {0}.", "  Драйвер сбросил настройки цвета, вернул: {0}.");
+            A("col_ok", "  Color settings checked: nothing was reset.", "  Настройки цвета проверены: ничего не сбросилось.");
+            A("col_fail", "  Could not put back: {0}. Set it again in NVIDIA Control Panel (Adjust desktop color settings).", "  Вернуть не удалось: {0}. Выставьте заново в панели NVIDIA (Регулировка параметров цвета рабочего стола).");
+            A("col_gamma", "brightness/contrast/gamma", "яркость/контрастность/гамма");
+            A("col_dvc", "digital vibrance", "насыщенность (Digital Vibrance)");
+            A("col_hue", "hue", "оттенок");
+
             A("mode_match", "  Active: {0}x{1}@{2} - matches the requested mode.", "  Активно: {0}x{1}@{2} - совпадает с запрошенным.");
             A("mode_diff", "  Windows reports {0}x{1}@{2}, expected {3}x{4}@{5:N0}.", "  Windows показывает {0}x{1}@{2}, ожидалось {3}x{4}@{5:N0}.");
             A("keep_question", "Does the picture look right?", "Картинка нормальная?");
@@ -173,7 +183,8 @@ namespace CustomRes
             A("rollback_note", "  Rolled back: the original display configuration was restored.", "  Откат: исходная конфигурация дисплеев восстановлена.");
 
             A("reenable_prompt", "Re-enable the monitors in Device Manager? [Y/n]", "Включить мониторы обратно в диспетчере устройств? [Y/n]");
-            A("keep_disabled", "Leaving them disabled. Restore later with: custom_res.bat /restore", "Оставляю отключёнными. Вернуть позже: custom_res.bat /restore");
+            A("keep_disabled", "Leaving them disabled. Restore later with: {0}", "Оставляю отключёнными. Вернуть позже: {0}");
+            A("gui_restore_hint", "the \"Restore monitors\" button", "кнопка «Вернуть мониторы»");
             A("persist_ok", "  After re-enabling the monitors the mode persisted: {0}x{1}.", "  После включения мониторов режим сохранился: {0}x{1}.");
             A("persist_lost", "  The mode was reset after re-enabling the monitors, applying it again...", "  После включения мониторов режим сбросился, применяю снова...");
             A("err_generic", "error: {0}", "ошибка: {0}");
@@ -465,6 +476,10 @@ namespace CustomRes
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate int DErr(int status, StringBuilder sb);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DGetCfg(ref uint count, IntPtr paths);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DSetCfg(uint count, IntPtr paths, uint flags);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)] private delegate int DGetHandle([MarshalAs(UnmanagedType.LPStr)] string name, out IntPtr handle);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DGetOutId(IntPtr handle, out uint outputId);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DInfoCall(IntPtr handle, uint outputId, IntPtr info);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int DLevelCall(IntPtr handle, uint outputId, int value);
 
         // function IDs for nvapi_QueryInterface
         private const uint ID_Initialize = 0x0150E828;
@@ -478,6 +493,15 @@ namespace CustomRes
         private const uint ID_EnumCustomDisplay = 0xA2072D59;
         private const uint ID_GetDisplayConfig = 0x11ABCCF8;
         private const uint ID_SetDisplayConfig = 0x5D8CF8DE;
+        // color settings of the desktop (digital vibrance and hue; brightness/contrast/gamma live in the gamma ramp)
+        private const uint ID_GetAssociatedDisplayHandle = 0x35C29134;
+        private const uint ID_GetAssociatedOutputId = 0xD995937E;
+        private const uint ID_GetDVCInfo = 0x4085DE45;
+        private const uint ID_SetDVCLevel = 0x172409B4;
+        private const uint ID_GetDVCInfoEx = 0x0E45002D;
+        private const uint ID_SetDVCLevelEx = 0x4A82C2B1;
+        private const uint ID_GetHUEInfo = 0x95B64341;
+        private const uint ID_SetHUEAngle = 0xF5A0F22C;
 
         private static CustomDisplay pending;
 
@@ -620,6 +644,98 @@ namespace CustomRes
                 if (cd.width == w && cd.height == h && (hz <= 0 || Math.Abs(cd.timing.etc.rrx1k / 1000.0 - hz) < 0.6)) return true;
             }
             return false;
+        }
+
+        // ---------- color settings (what "Adjust desktop color settings" uses) ----------
+        private static bool ColorTarget(string gdiName, out IntPtr handle, out uint outId)
+        {
+            handle = IntPtr.Zero; outId = 0;
+            if (Get<DGetHandle>(ID_GetAssociatedDisplayHandle)(gdiName, out handle) != 0 || handle == IntPtr.Zero) return false;
+            try { if (Get<DGetOutId>(ID_GetAssociatedOutputId)(handle, out outId) != 0) outId = 0; }
+            catch (Exception) { outId = 0; }
+            return true;
+        }
+
+        // calls an NVAPI "get" function that fills a versioned structure; returns the bytes of the structure or null
+        private static byte[] GetStruct(uint fnId, IntPtr h, uint outId, int size)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(size + 64);
+            try
+            {
+                Marshal.Copy(new byte[size + 64], 0, buf, size + 64);
+                Marshal.WriteInt32(buf, 0, size | (1 << 16));
+                if (Get<DInfoCall>(fnId)(h, outId, buf) != 0) return null;
+                byte[] r = new byte[size];
+                Marshal.Copy(buf, r, 0, size);
+                return r;
+            }
+            finally { Marshal.FreeHGlobal(buf); }
+        }
+
+        private static int SetStruct(uint fnId, IntPtr h, uint outId, byte[] data)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(data.Length + 64);
+            try
+            {
+                Marshal.Copy(new byte[data.Length + 64], 0, buf, data.Length + 64);
+                Marshal.Copy(data, 0, buf, data.Length);
+                Marshal.WriteInt32(buf, 0, data.Length | (1 << 16));
+                return Get<DInfoCall>(fnId)(h, outId, buf);
+            }
+            finally { Marshal.FreeHGlobal(buf); }
+        }
+
+        // reads the digital vibrance and the hue of a display into s (whatever the driver does not report stays unset)
+        public static void ReadColor(string gdiName, ColorSnapshot s)
+        {
+            IntPtr h; uint oid;
+            if (!ColorTarget(gdiName, out h, out oid)) return;
+            try
+            {
+                byte[] r = GetStruct(ID_GetDVCInfoEx, h, oid, 20);   // the "Ex" call first (percent), the old one as a fallback
+                if (r != null) { s.HasDvc = true; s.DvcEx = true; s.DvcRaw = r; s.DvcLevel = BitConverter.ToInt32(r, 4); }
+            }
+            catch (Exception) { }
+            if (!s.HasDvc)
+            {
+                try
+                {
+                    byte[] r2 = GetStruct(ID_GetDVCInfo, h, oid, 16);
+                    if (r2 != null) { s.HasDvc = true; s.DvcEx = false; s.DvcRaw = r2; s.DvcLevel = BitConverter.ToInt32(r2, 4); }
+                }
+                catch (Exception) { }
+            }
+            try
+            {
+                byte[] r3 = GetStruct(ID_GetHUEInfo, h, oid, 12);
+                if (r3 != null) { s.HasHue = true; s.HueAngle = BitConverter.ToInt32(r3, 4); }
+            }
+            catch (Exception) { }
+        }
+
+        // puts back the digital vibrance (mask bit 2) and/or the hue (mask bit 4) saved in s; returns the bits written without an error
+        public static int WriteColor(string gdiName, ColorSnapshot s, int mask)
+        {
+            int done = 0;
+            IntPtr h; uint oid;
+            if (!ColorTarget(gdiName, out h, out oid)) return 0;
+            if ((mask & 2) != 0 && s.HasDvc)
+            {
+                try
+                {
+                    int st;
+                    if (s.DvcEx) st = SetStruct(ID_SetDVCLevelEx, h, oid, s.DvcRaw);
+                    else st = Get<DLevelCall>(ID_SetDVCLevel)(h, oid, s.DvcLevel);
+                    if (st == 0) done |= 2;
+                }
+                catch (Exception) { }
+            }
+            if ((mask & 4) != 0 && s.HasHue)
+            {
+                try { if (Get<DLevelCall>(ID_SetHUEAngle)(h, oid, s.HueAngle) == 0) done |= 4; }
+                catch (Exception) { }
+            }
+            return done;
         }
 
         // ---------- NVIDIA display configuration (what "Adjust desktop size and position" uses) ----------
@@ -859,6 +975,109 @@ namespace CustomRes
     }
 
     // =====================================================================
+    //  Color settings of the primary display: brightness, contrast, gamma, digital vibrance, hue.
+    //  The driver can reset them when the mode or the display configuration changes or when the monitors
+    //  are switched off and on, so they are saved first and put back afterwards (only if they changed).
+    // =====================================================================
+    public class ColorSnapshot
+    {
+        public string Device;
+        public ushort[] Ramp;                         // gamma ramp = brightness, contrast, gamma (3 x 256 values) or null
+        public bool HasDvc, DvcEx;                    // digital vibrance (what NVIDIA Control Panel calls "Digital vibrance")
+        public byte[] DvcRaw;
+        public int DvcLevel;
+        public bool HasHue;
+        public int HueAngle;
+        // 1 = gamma ramp, 2 = digital vibrance, 4 = hue
+        public int Mask { get { return (Ramp != null ? 1 : 0) | (HasDvc ? 2 : 0) | (HasHue ? 4 : 0); } }
+    }
+
+    public static class GammaRamp
+    {
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateDCW(string driver, string device, string port, IntPtr devmode);
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+        [DllImport("gdi32.dll")]
+        private static extern bool GetDeviceGammaRamp(IntPtr hdc, [In, Out] ushort[] ramp);
+        [DllImport("gdi32.dll")]
+        private static extern bool SetDeviceGammaRamp(IntPtr hdc, [In, Out] ushort[] ramp);
+
+        public static ushort[] Get(string dev)
+        {
+            IntPtr dc = CreateDCW("DISPLAY", dev, null, IntPtr.Zero);
+            if (dc == IntPtr.Zero) return null;
+            try
+            {
+                ushort[] r = new ushort[768];
+                return GetDeviceGammaRamp(dc, r) ? r : null;
+            }
+            finally { DeleteDC(dc); }
+        }
+
+        public static bool Set(string dev, ushort[] ramp)
+        {
+            if (ramp == null || ramp.Length != 768) return false;
+            IntPtr dc = CreateDCW("DISPLAY", dev, null, IntPtr.Zero);
+            if (dc == IntPtr.Zero) return false;
+            try { return SetDeviceGammaRamp(dc, (ushort[])ramp.Clone()); }
+            finally { DeleteDC(dc); }
+        }
+
+        // the driver may store the ramp with 8-bit precision, so a difference of about one 8-bit step does not count
+        public static bool Same(ushort[] a, ushort[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+            {
+                if (Math.Abs(a[i] - b[i]) > 300) return false;
+            }
+            return true;
+        }
+    }
+
+    public static class Colors
+    {
+        public static ColorSnapshot Save(string dev)
+        {
+            ColorSnapshot s = new ColorSnapshot();
+            s.Device = dev;
+            try { s.Ramp = GammaRamp.Get(dev); } catch (Exception) { s.Ramp = null; }
+            try { NvApi.ReadColor(dev, s); } catch (Exception) { }
+            return s;
+        }
+
+        // which parts of the snapshot differ from what the driver has now (1 = gamma ramp, 2 = vibrance, 4 = hue)
+        public static int Diff(ColorSnapshot s)
+        {
+            int mask = 0;
+            ColorSnapshot cur = new ColorSnapshot();
+            cur.Device = s.Device;
+            try { cur.Ramp = GammaRamp.Get(s.Device); } catch (Exception) { cur.Ramp = null; }
+            try { NvApi.ReadColor(s.Device, cur); } catch (Exception) { }
+            if (s.Ramp != null && cur.Ramp != null && !GammaRamp.Same(s.Ramp, cur.Ramp)) mask |= 1;
+            if (s.HasDvc && cur.HasDvc && s.DvcLevel != cur.DvcLevel) mask |= 2;
+            if (s.HasHue && cur.HasHue && s.HueAngle != cur.HueAngle) mask |= 4;
+            return mask;
+        }
+
+        // writes back only what differs; returns the mask of the parts that differed (0 = nothing to do)
+        public static int Restore(ColorSnapshot s)
+        {
+            int mask = Diff(s);
+            if ((mask & 1) != 0)
+            {
+                try { GammaRamp.Set(s.Device, s.Ramp); } catch (Exception) { }
+            }
+            if ((mask & 6) != 0)
+            {
+                try { NvApi.WriteColor(s.Device, s, mask & 6); } catch (Exception) { }
+            }
+            return mask;
+        }
+    }
+
+    // =====================================================================
     //  Monitors in Device Manager (the device/driver only, never the physical monitor)
     // =====================================================================
     public static class Monitors
@@ -972,8 +1191,19 @@ namespace CustomRes
         void Sleep(int ms);
     }
 
-    public class WinPlatform : IPlatform
+    // optional part of the platform: a platform that does not implement it simply skips the color handling
+    public interface IColorPlatform
     {
+        ColorSnapshot ColorSave(string gdiName);
+        int ColorRestore(ColorSnapshot snap);     // writes back what differs, returns the mask of the parts that differed
+        int ColorDiff(ColorSnapshot snap);        // the mask of the parts that differ now
+    }
+
+    public class WinPlatform : IPlatform, IColorPlatform
+    {
+        public ColorSnapshot ColorSave(string n) { return Colors.Save(n); }
+        public int ColorRestore(ColorSnapshot s) { return Colors.Restore(s); }
+        public int ColorDiff(ColorSnapshot s) { return Colors.Diff(s); }
         public bool Is64Bit() { return Environment.Is64BitProcess; }
         public List<DispInfo> Displays() { return Gdi.Displays(); }
         public int[] CurrentMode(string n) { return Gdi.Current(n); }
@@ -1107,9 +1337,11 @@ namespace CustomRes
         public double Hz;
         public bool DisableMonitors = true;
         public bool Stretch = true;
+        public bool KeepColors = true;         // save brightness/contrast/gamma/vibrance/hue and put them back if the driver resets them
         public bool AskReenable = true;        // console: ask at the end; GUI: use ReenableMonitors
         public bool ReenableMonitors = true;
         public int TestSeconds = 15;
+        public string RestoreHint = "/restore";   // how the user can bring the monitors back (shown when they stay disabled)
         public uint SaveOutputOnly = 0, SaveMonitorOnly = 0;
     }
 
@@ -1205,6 +1437,39 @@ namespace CustomRes
             return cur != null && cur[0] == t.W && cur[1] == t.H && Math.Abs(cur[2] - realHz) <= 1.0;
         }
 
+        private static string ColorNames(int mask)
+        {
+            List<string> n = new List<string>();
+            if ((mask & 1) != 0) n.Add(T("col_gamma"));
+            if ((mask & 2) != 0) n.Add(T("col_dvc"));
+            if ((mask & 4) != 0) n.Add(T("col_hue"));
+            return string.Join(", ", n.ToArray());
+        }
+
+        // Puts back brightness/contrast/gamma, digital vibrance and hue if the driver reset them (it can do that after a mode change,
+        // after the display configuration is applied and after the monitors come back). The driver sometimes resets them a moment
+        // later, so the check is repeated. Returns the mask of what had to be put back (0 = nothing was reset).
+        private static int KeepColors(IPlatform p, IColorPlatform cp, ColorSnapshot snap, Action<string, int> log)
+        {
+            if (cp == null || snap == null) return 0;
+            int total = 0;
+            try
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    int m = cp.ColorRestore(snap);
+                    if (m == 0) break;
+                    total |= m;
+                    p.Sleep(600);
+                }
+                int left = cp.ColorDiff(snap);
+                if (left != 0) log(T("col_fail", ColorNames(left)), LvWarn);
+                else if (total != 0) log(T("col_restored", ColorNames(total)), LvOk);
+            }
+            catch (Exception) { }
+            return total;
+        }
+
         public static RunResult Run(IPlatform p, Options o, Callbacks cb)
         {
             RunResult res = new RunResult();
@@ -1212,6 +1477,9 @@ namespace CustomRes
             bool disabledByUs = false, keepDisabled = false;
             int stepNo = 0;
             int stepTotal = 0;
+            IColorPlatform cp = o.KeepColors ? (p as IColorPlatform) : null;
+            ColorSnapshot colors = null;
+            int colorFixed = 0;
             try
             {
                 if (!p.Is64Bit()) return Fail(res, log, "need64");
@@ -1234,6 +1502,14 @@ namespace CustomRes
 
                 p.NvInit();
                 uint id = p.NvDisplayId(prim.Name);
+
+                // brightness, contrast, gamma, digital vibrance, hue: saved before anything changes
+                if (cp != null)
+                {
+                    try { colors = cp.ColorSave(prim.Name); } catch (Exception) { colors = null; }
+                    if (colors != null && colors.Mask != 0) log(T("col_saved", ColorNames(colors.Mask)), LvDim);
+                    else { colors = null; log(T("col_none"), LvWarn); }
+                }
 
                 // the untouched configuration: used to build the stretched one and to roll back
                 NvConfig orig = null;
@@ -1324,12 +1600,15 @@ namespace CustomRes
                     }
                 }
 
+                colorFixed |= KeepColors(p, cp, colors, log);      // so that the picture shown for the test already has your colors
+
                 bool keep = cb.ConfirmKeep(T("keep_question"), o.TestSeconds);
                 if (!keep)
                 {
                     p.NvRevert(id);
                     if (applied != null && orig != null) { ApplyCfg(p, orig, 0); log(T("rollback_note"), LvWarn); }
                     if (saved) p.NvDeleteCustom(id);
+                    if (colors != null) { p.Sleep(1500); KeepColors(p, cp, colors, log); }
                     res.Status = T("reverted");
                     log("  " + res.Status, LvWarn);
                     return res;
@@ -1370,6 +1649,8 @@ namespace CustomRes
                     winRc = p.SetWindowsMode(prim.Name, t.W, t.H, (int)Math.Round(realHz), true);
                 }
 
+                if (colors != null) { p.Sleep(1500); colorFixed |= KeepColors(p, cp, colors, log); }
+
                 if (winRc != 0)
                 {
                     res.Status = T("win_apply_fail", winRc);
@@ -1389,7 +1670,7 @@ namespace CustomRes
                     if (!re)
                     {
                         keepDisabled = true;
-                        log(T("keep_disabled"), LvWarn);
+                        log(T("keep_disabled", o.RestoreHint), LvWarn);
                     }
                     else
                     {
@@ -1411,8 +1692,10 @@ namespace CustomRes
                             if (!ok) { log(T("persist_lost"), LvWarn); p.SetWindowsMode(prim.Name, t.W, t.H, (int)Math.Round(realHz), true); }
                         }
                         if (ok) log(T("persist_ok", t.W, t.H), LvOk);
+                        colorFixed |= KeepColors(p, cp, colors, log);
                     }
                 }
+                if (colors != null && colorFixed == 0) log(T("col_ok"), LvOk);
                 return res;
             }
             catch (Exception ex)
@@ -1426,6 +1709,7 @@ namespace CustomRes
                 if (disabledByUs && !keepDisabled)
                 {
                     try { p.RestoreMonitors(log); } catch (Exception) { }
+                    if (colors != null) { try { p.Sleep(4000); KeepColors(p, cp, colors, log); } catch (Exception) { } }
                 }
             }
         }
@@ -1462,6 +1746,7 @@ $logAction = [Action[string, int]] { param($text, $level) Write-Host $text -Fore
 $argLine = "$env:CR_ARG"
 $isRestore = $argLine -match '(^|\s)[/-]restore(\s|$)'
 $noDisable = $argLine -match '(^|\s)[/-]nodisable(\s|$)'
+$noColors = $argLine -match '(^|\s)[/-]nocolors?(\s|$)'
 if ($argLine -match '(^|\s)[/-]nostretch(\s|$)') { $Stretch = $false }
 if ($argLine -match '(^|\s)[/-]ru(\s|$)') { [CustomRes.Strings]::Lang = 'ru' }
 elseif ($argLine -match '(^|\s)[/-]en(\s|$)') { [CustomRes.Strings]::Lang = 'en' }
@@ -1529,7 +1814,9 @@ try {
     $opt.Width = $rw; $opt.Height = $rh; $opt.Hz = $rhz
     $opt.Stretch = $Stretch
     $opt.DisableMonitors = -not $noDisable
+    $opt.KeepColors = -not $noColors
     $opt.AskReenable = $true
+    $opt.RestoreHint = ([IO.Path]::GetFileName($env:CR_SELF) + ' /restore')
     $opt.TestSeconds = $TestSeconds
 
     $callbacks = New-Object CustomRes.Callbacks
