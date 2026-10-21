@@ -229,6 +229,7 @@ namespace CustomRes
     public class Chip : DarkControl
     {
         public bool Selected;
+        public bool Badge;   // a small dot: this is the original resolution
         private bool hover;
 
         public Chip()
@@ -264,6 +265,10 @@ namespace CustomRes
             using (SolidBrush tb = new SolidBrush(text))
             {
                 g.DrawString(Text, Font, tb, new RectangleF(0, 0, Width, Height), sf);
+            }
+            if (Badge && Enabled)
+            {
+                using (SolidBrush bb = new SolidBrush(Theme.RedBright)) { g.FillEllipse(bb, Width - 11, 4, 5, 5); }
             }
         }
     }
@@ -726,6 +731,7 @@ namespace CustomRes
     public class Preset
     {
         public string Label; public int W; public int H;
+        public int Hz;   // only the "original resolution" preset carries a refresh rate
         public Preset(string label, int w, int h) { Label = label; W = w; H = h; }
     }
 
@@ -753,6 +759,8 @@ namespace CustomRes
         private readonly RedButton btnRestore = new RedButton();
         private readonly RedButton btnClose = new RedButton();
         private readonly RichTextBox log = new RichTextBox();
+        private readonly ToolTip tips = new ToolTip();
+        private OriginalMode original;   // the resolution the user started with (remembered between runs)
 
         private volatile bool busy;
         private bool nvidiaPrimary;
@@ -788,30 +796,36 @@ namespace CustomRes
             // ---- resolution card ----
             cardRes.SetBounds(24, 114, 672, 208);
             cardRes.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            presets.Add(new Preset("1280\u00D7960", 1280, 960));
-            presets.Add(new Preset("1440\u00D71080", 1440, 1080));
-            presets.Add(new Preset("1024\u00D7768", 1024, 768));
-            presets.Add(new Preset("1600\u00D71200", 1600, 1200));
-            presets.Add(new Preset("1920\u00D71440", 1920, 1440));
-            presets.Add(new Preset("1280\u00D71024", 1280, 1024));
-            presets.Add(new Preset("1680\u00D71050", 1680, 1050));
+            presets.Add(new Preset("", 0, 0));   // first place: the resolution the user started with (filled in by ApplyOriginal)
+            presets.Add(new Preset("1566\u00D71080", 1566, 1080));
+            presets.Add(new Preset("1440\u00D7993", 1440, 993));
+            presets.Add(new Preset("1350\u00D7931", 1350, 931));
+            presets.Add(new Preset("1280\u00D7880", 1280, 880));
+            presets.Add(new Preset("1280\u00D7815", 1280, 815));
+            presets.Add(new Preset("1150\u00D7793", 1150, 793));
             int cx = 20;
             foreach (Preset p in presets)
             {
                 Chip c = new Chip();
                 c.Text = p.Label; c.Tag = p;
                 c.SetBounds(cx, 44, 86, 30);
-                c.Click += delegate(object s, EventArgs ev) { Preset q = (Preset)((Chip)s).Tag; numW.Value = q.W; numH.Value = q.H; };
+                c.Click += delegate(object s, EventArgs ev)
+                {
+                    Preset q = (Preset)((Chip)s).Tag;
+                    numW.Value = q.W; numH.Value = q.H;
+                    if (q.Hz >= 24 && q.Hz <= 1000) numHz.Value = q.Hz;   // the original preset also brings back the original refresh rate
+                };
                 cardRes.Controls.Add(c); chips.Add(c);
                 cx += 86 + 6;
             }
+            chips[0].Badge = true;
             lblW = MakeLabel("", Theme.Ui(8.5f), Theme.Muted, Theme.Card); lblW.SetBounds(20, 90, 150, 18);
             lblH = MakeLabel("", Theme.Ui(8.5f), Theme.Muted, Theme.Card); lblH.SetBounds(216, 90, 150, 18);
             lblHz = MakeLabel("", Theme.Ui(8.5f), Theme.Muted, Theme.Card); lblHz.SetBounds(430, 90, 200, 18);
             numW.BackColor = Theme.Card; numH.BackColor = Theme.Card; numHz.BackColor = Theme.Card;
-            numW.SetBounds(20, 110, 160, 38); numW.Minimum = 320; numW.Maximum = 8192; numW.Value = 1280;
+            numW.SetBounds(20, 110, 160, 38); numW.Minimum = 320; numW.Maximum = 8192; numW.Value = 1566;
             lblX = MakeLabel("\u00D7", Theme.Ui(14f), Theme.Dim, Theme.Card); lblX.TextAlign = ContentAlignment.MiddleCenter; lblX.SetBounds(182, 110, 32, 38);
-            numH.SetBounds(216, 110, 160, 38); numH.Minimum = 200; numH.Maximum = 8192; numH.Value = 960;
+            numH.SetBounds(216, 110, 160, 38); numH.Minimum = 200; numH.Maximum = 8192; numH.Value = 1080;
             lblX.Name = "x";
             numHz.SetBounds(430, 110, 160, 38); numHz.Minimum = 24; numHz.Maximum = 1000; numHz.DecimalPlaces = 3; numHz.Value = 60;
             lblInfo = MakeLabel("", Theme.Ui(9.5f), Theme.Muted, Theme.Card); lblInfo.SetBounds(20, 158, 632, 40);
@@ -827,7 +841,7 @@ namespace CustomRes
             cardOpt.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             chkStretch.SetBounds(20, 40, 632, 28); chkStretch.Checked = true;
             chkDisable.SetBounds(20, 74, 632, 28); chkDisable.Checked = true;
-            chkReenable.SetBounds(52, 108, 600, 28); chkReenable.Checked = false;
+            chkReenable.SetBounds(52, 108, 600, 28); chkReenable.Checked = true;   // monitors left disabled = no limits from the monitor = artifacts later
             chkDisable.CheckedChanged += delegate { chkReenable.Enabled = chkDisable.Checked && !busy; };
             cardOpt.Controls.Add(chkStretch); cardOpt.Controls.Add(chkDisable); cardOpt.Controls.Add(chkReenable);
 
@@ -872,6 +886,7 @@ namespace CustomRes
             Shown += delegate
             {
                 if (!IsAdmin()) Append(Strings.T("gui_not_admin"), Engine.LvWarn);
+                try { if (platform.HasSavedMonitors()) Append(Strings.T("gui_monitors_off"), Engine.LvWarn); } catch (Exception) { }
             };
         }
 
@@ -893,10 +908,50 @@ namespace CustomRes
                     nvidiaPrimary = d.Desc != null && d.Desc.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0;
                     displayLine = d.Name + "   \u00B7   " + d.Desc + "   \u00B7   " + d.W + "\u00D7" + d.H + " @ " + d.Hz + " Hz";
                     if (d.Hz >= 24 && d.Hz <= 1000) numHz.Value = d.Hz;
+                    RememberOriginal(d);
                     break;
                 }
             }
             catch (Exception ex) { displayLine = ex.Message; }
+        }
+
+        // works out (and remembers between runs) the resolution the user started with
+        private void RememberOriginal(DispInfo d)
+        {
+            try
+            {
+                int sw = 0, sh = 0;
+                if (nvidiaPrimary)
+                {
+                    try
+                    {
+                        platform.NvInit();
+                        uint id = platform.NvDisplayId(d.Name);
+                        double[] sg = platform.NvCurrentSignal(id, (uint)d.W, (uint)d.H, d.Hz);   // the signal that really goes to the monitor
+                        if (sg != null && sg.Length >= 2) { sw = (int)sg[0]; sh = (int)sg[1]; }
+                    }
+                    catch (Exception) { sw = 0; sh = 0; }
+                }
+                original = OriginalMode.Resolve(d.Desc, d.Monitor, d.W, d.H, d.Hz, sw, sh);
+            }
+            catch (Exception) { original = null; }
+        }
+
+        // the first preset is always the original resolution
+        private void ApplyOriginal()
+        {
+            if (chips.Count == 0) return;
+            Chip c = chips[0];
+            Preset p = (Preset)c.Tag;
+            if (original != null)
+            {
+                p.W = original.W; p.H = original.H; p.Hz = original.Hz;
+                p.Label = original.W + "\u00D7" + original.H;
+            }
+            else { p.W = 0; p.H = 0; p.Hz = 0; p.Label = "\u2014"; }
+            c.Text = p.Label;
+            c.Enabled = p.W > 0;
+            tips.SetToolTip(c, p.W > 0 ? Strings.T("gui_orig_tip", p.W, p.H, p.Hz) : "");
         }
 
         private void ApplyLanguage()
@@ -918,6 +973,7 @@ namespace CustomRes
             btnApply.Text = Strings.T("gui_apply");
             btnRestore.Text = Strings.T("gui_restore");
             btnClose.Text = Strings.T("gui_close");
+            ApplyOriginal();
             building = false;
             UpdateTiming();
             Invalidate(true);   // repaint every control right away, not only the ones under the mouse

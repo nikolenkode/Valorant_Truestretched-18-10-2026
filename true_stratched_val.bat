@@ -34,6 +34,8 @@ exit /b
 #  custom_res.bat /restore   only re-enable the monitors disabled by a previous run
 #  custom_res.bat /nodisable do not disable the monitors (for troubleshooting)
 #  custom_res.bat /nocolors  do not save/restore brightness, contrast, gamma, vibrance, hue (for troubleshooting)
+#  custom_res.bat /force     do not refuse a refresh rate above what the monitor lists (can distort the picture!)
+#  custom_res.bat /disableall disable the monitor devices even if several displays are connected (can switch the others off!)
 #  custom_res.bat /nostretch do not stretch (apply the mode 1:1, the monitor decides what to do with it)
 #
 #  The same engine is used by the GUI (CustomRes.exe, see CustomResGui.cs / build.bat).
@@ -168,6 +170,27 @@ namespace CustomRes
             A("col_dvc", "digital vibrance", "насыщенность (Digital Vibrance)");
             A("col_hue", "hue", "оттенок");
 
+            A("att_native", "  {0}: the driver has its own {1}x{2} @ {3:N2} Hz timing (the monitor's native one), so it is used and no custom resolution is created.",
+                            "  {0}: у драйвера есть собственный тайминг {1}x{2} @ {3:N2} Гц (родной для монитора), он и используется, кастомное разрешение не создаётся.");
+            A("env_info", "  Windows {0} (build {1}); displays attached: {2}.", "  Windows {0} (сборка {1}); подключено дисплеев: {2}.");
+            A("mon_skip_multi", "  {0} displays are connected, so the monitor devices stay enabled: on Windows 10/11 disabling them can switch the other displays off. If the driver refuses the resolution, connect only one display and run again.",
+                                "  Подключено дисплеев: {0}, поэтому устройства мониторов остаются включёнными: в Windows 10/11 их отключение может выключить остальные дисплеи. Если драйвер откажется от разрешения, оставьте подключённым один дисплей и запустите снова.");
+            A("disp_lost", "  Windows switched a display off: {0} ({1}x{2}). Bringing it back...", "  Windows выключила дисплей: {0} ({1}x{2}). Возвращаю...");
+            A("disp_back", "  The display is back on, at its old place.", "  Дисплей снова включён на прежнем месте.");
+            A("disp_still_off", "  The display {0} is still off. Turn it on in Windows: Win+P > Extend, or Settings > System > Display.", "  Дисплей {0} всё ещё выключен. Включите его в Windows: Win+P > Расширить, или Параметры > Система > Дисплей.");
+            A("disp_extended", "  Another display was switched off: the desktop is extended onto it again.", "  Другой дисплей был выключен: рабочий стол снова расширен на него.");
+            A("gui_orig_tip", "Your original resolution, {0}x{1} @ {2} Hz. It is remembered between runs.",
+                              "Ваше исходное разрешение, {0}x{1} @ {2} Гц. Запоминается между запусками.");
+            A("stale_custom_removed", "  Removed a saved custom {0}x{1} @ {2:N0} Hz timing: it overrode the monitor's own timing for this resolution.",
+                                      "  Удалено сохранённое кастомное разрешение {0}x{1} @ {2:N0} Гц: его собственный тайминг перекрывал родной тайминг монитора для этого разрешения.");
+            A("done_native", "done: the monitor's native timing is applied (nothing custom was saved)", "готово: применён родной тайминг монитора (ничего кастомного не сохранялось)");
+            A("hz_over_limit", "The monitor reports at most {0} Hz at its native {1}x{2}, but {3:N0} Hz was requested. A refresh rate above the monitor's limit gives a distorted picture and artifacts, so nothing was changed. Use {0} Hz or less.",
+                               "Монитор сообщает максимум {0} Гц на родном {1}x{2}, а запрошено {3:N0} Гц. Частота выше предела монитора даёт искажённую картинку и артефакты, поэтому ничего не менялось. Укажите {0} Гц или меньше.");
+            A("keep_disabled_warn", "  Warning: while the monitors are disabled the driver does not check modes against the monitor's limits. If you see artifacts or noise, restore the monitors.",
+                                    "  Внимание: пока мониторы отключены, драйвер не сверяет режимы с пределами монитора. Если появились артефакты или помехи, верните мониторы.");
+            A("gui_monitors_off", "The monitors are still disabled from a previous run. In this state the driver does not check modes against the monitor's limits, which can cause artifacts and noise. Press \"Restore monitors\".",
+                                  "Мониторы всё ещё отключены с прошлого запуска. В таком состоянии драйвер не сверяет режимы с пределами монитора, из-за чего бывают артефакты и помехи. Нажмите «Вернуть мониторы».");
+
             A("mode_match", "  Active: {0}x{1}@{2} - matches the requested mode.", "  Активно: {0}x{1}@{2} - совпадает с запрошенным.");
             A("mode_diff", "  Windows reports {0}x{1}@{2}, expected {3}x{4}@{5:N0}.", "  Windows показывает {0}x{1}@{2}, ожидалось {3}x{4}@{5:N0}.");
             A("keep_question", "Does the picture look right?", "Картинка нормальная?");
@@ -215,7 +238,7 @@ namespace CustomRes
             A("gui_preset_pick", "(pick a preset)", "(выберите готовое)");
             A("gui_options", "Options", "Параметры");
             A("gui_stretch", "Stretch to the full screen (GPU scaling)", "Растянуть на весь экран (масштабирование на GPU)");
-            A("gui_disable", "Disable the monitors in Device Manager while creating (driver only)", "Отключить мониторы в диспетчере устройств на время создания (только драйвер)");
+            A("gui_disable", "Disable the monitors in Device Manager while creating (driver only; skipped when several displays are connected)", "Отключить мониторы в диспетчере устройств на время создания (только драйвер; пропускается, если подключено несколько дисплеев)");
             A("gui_reenable", "Enable the monitors again afterwards", "Включить мониторы обратно после применения");
             A("gui_apply", "Create and apply", "Создать и применить");
             A("gui_restore", "Restore monitors", "Вернуть мониторы");
@@ -632,6 +655,31 @@ namespace CustomRes
             return Get<DDelete>(ID_DeleteCustomDisplay)(new uint[] { id }, 1, ref cd);
         }
 
+        // removes the saved 1:1 custom resolutions of exactly this size and refresh rate (their timing is the size itself, so they are not
+        // GPU-scaled modes); returns how many were removed
+        public static int DeleteSameSize(uint id, uint w, uint h, double hz)
+        {
+            DEnum en = Get<DEnum>(ID_EnumCustomDisplay);
+            DDelete del = Get<DDelete>(ID_DeleteCustomDisplay);
+            int removed = 0;
+            for (int round = 0; round < 16; round++)
+            {
+                bool found = false;
+                for (uint i = 0; i < 512; i++)
+                {
+                    CustomDisplay cd = Blank();
+                    if (en(id, i, ref cd) != 0) break;
+                    if (cd.width != w || cd.height != h) continue;
+                    if (Math.Abs(cd.timing.etc.rrx1k / 1000.0 - hz) >= 0.6) continue;
+                    if (cd.timing.HVisible != w || cd.timing.VVisible != h) continue;
+                    if (del(new uint[] { id }, 1, ref cd) == 0) { removed++; found = true; }
+                    break;   // the indices shift after a deletion, so start the search again
+                }
+                if (!found) break;
+            }
+            return removed;
+        }
+
         // is this resolution in the driver's list of saved custom resolutions?
         public static bool HasCustom(uint id, uint w, uint h, double hz)
         {
@@ -889,7 +937,49 @@ namespace CustomRes
     public class DispInfo
     {
         public string Name; public string Desc; public bool Primary;
+        public string Monitor = "";                       // model code of the monitor, for example GSM5B09 (empty if unknown)
         public int W; public int H; public int Hz;
+    }
+
+    // a display that is attached to the desktop, with its complete mode and place (to bring it back if Windows switches it off)
+    public class DisplayState
+    {
+        public string Name;
+        public bool Primary;
+        public int X, Y, W, H, Hz;
+        public Gdi.DEVMODE Dm;
+    }
+
+    public class DisplaySnapshot
+    {
+        public List<DisplayState> Items = new List<DisplayState>();
+        public int PrimW, PrimH;   // the primary display always sits at 0,0
+    }
+
+    // the real Windows build (Environment.OSVersion lies for programs without a compatibility manifest)
+    public static class WinInfo
+    {
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct OSVERSIONINFOEX
+        {
+            public int dwOSVersionInfoSize; public int dwMajorVersion; public int dwMinorVersion; public int dwBuildNumber; public int dwPlatformId;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string szCSDVersion;
+            public ushort wServicePackMajor; public ushort wServicePackMinor; public ushort wSuiteMask; public byte wProductType; public byte wReserved;
+        }
+        [DllImport("ntdll.dll")]
+        private static extern int RtlGetVersion(ref OSVERSIONINFOEX v);
+
+        public static int Build()
+        {
+            try
+            {
+                OSVERSIONINFOEX v = new OSVERSIONINFOEX();
+                v.dwOSVersionInfoSize = Marshal.SizeOf(typeof(OSVERSIONINFOEX));
+                if (RtlGetVersion(ref v) == 0) return v.dwBuildNumber;
+            }
+            catch (Exception) { }
+            return 0;
+        }
     }
 
     public static class Gdi
@@ -928,6 +1018,12 @@ namespace CustomRes
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern int ChangeDisplaySettingsExW(string device, ref DEVMODE dm, IntPtr hwnd, uint flags, IntPtr lParam);
 
+        // the same call without a mode: applies the changes that were collected with CDS_NORESET
+        [DllImport("user32.dll", EntryPoint = "ChangeDisplaySettingsExW", CharSet = CharSet.Unicode)]
+        private static extern int ChangeDisplaySettingsExCommit(string device, IntPtr dm, IntPtr hwnd, uint flags, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern int SetDisplayConfig(uint numPaths, IntPtr paths, uint numModes, IntPtr modes, uint flags);
+
         private static DEVMODE NewDm()
         {
             DEVMODE dm = new DEVMODE();
@@ -943,6 +1039,19 @@ namespace CustomRes
             return new int[] { (int)dm.dmPelsWidth, (int)dm.dmPelsHeight, (int)dm.dmDisplayFrequency };
         }
 
+        // the highest refresh rate that Windows lists for this resolution on this display (0 = no such mode in the list)
+        public static int MaxRefresh(string dev, int w, int h)
+        {
+            int max = 0;
+            for (int i = 0; i < 4096; i++)
+            {
+                DEVMODE dm = NewDm();
+                if (!EnumDisplaySettingsW(dev, i, ref dm)) break;
+                if (dm.dmPelsWidth == (uint)w && dm.dmPelsHeight == (uint)h && (int)dm.dmDisplayFrequency > max) max = (int)dm.dmDisplayFrequency;
+            }
+            return max;
+        }
+
         // active desktop displays
         public static List<DispInfo> Displays()
         {
@@ -955,6 +1064,18 @@ namespace CustomRes
                 if ((dd.StateFlags & 0x1) == 0) continue;
                 DispInfo d = new DispInfo();
                 d.Name = dd.DeviceName; d.Desc = dd.DeviceString; d.Primary = (dd.StateFlags & 0x4) != 0;
+                d.Monitor = "";
+                try
+                {
+                    DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
+                    mon.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+                    if (EnumDisplayDevicesW(dd.DeviceName, 0, ref mon, 0))
+                    {
+                        string[] part = (mon.DeviceID ?? "").Split('\\');
+                        d.Monitor = (part.Length >= 2 && part[0] == "MONITOR") ? part[1] : (mon.DeviceString ?? "");
+                    }
+                }
+                catch (Exception) { d.Monitor = ""; }
                 int[] c = Current(dd.DeviceName);
                 if (c != null) { d.W = c[0]; d.H = c[1]; d.Hz = c[2]; }
                 list.Add(d);
@@ -971,6 +1092,175 @@ namespace CustomRes
             // PELSWIDTH | PELSHEIGHT | DISPLAYFREQUENCY | BITSPERPEL | POSITION | DISPLAYORIENTATION
             dm.dmFields = 0x80000 | 0x100000 | 0x400000 | 0x40000 | 0x20 | 0x80;
             return ChangeDisplaySettingsExW(dev, ref dm, IntPtr.Zero, persist ? 1u : 0u, IntPtr.Zero);
+        }
+
+        // every display that is attached to the desktop now, with its complete mode and place
+        public static DisplaySnapshot Snapshot()
+        {
+            DisplaySnapshot snap = new DisplaySnapshot();
+            for (uint i = 0; i < 32; i++)
+            {
+                DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
+                dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+                if (!EnumDisplayDevicesW(null, i, ref dd, 0)) break;
+                if ((dd.StateFlags & 0x1) == 0) continue;
+                DEVMODE dm = NewDm();
+                if (!EnumDisplaySettingsW(dd.DeviceName, -1, ref dm)) continue;
+                DisplayState st = new DisplayState();
+                st.Name = dd.DeviceName;
+                st.Primary = (dd.StateFlags & 0x4) != 0;
+                st.X = dm.dmPositionX; st.Y = dm.dmPositionY;
+                st.W = (int)dm.dmPelsWidth; st.H = (int)dm.dmPelsHeight; st.Hz = (int)dm.dmDisplayFrequency;
+                st.Dm = dm;
+                snap.Items.Add(st);
+                if (st.Primary) { snap.PrimW = st.W; snap.PrimH = st.H; }
+            }
+            return snap;
+        }
+
+        // the displays of the snapshot that are not attached to the desktop any more
+        public static List<DisplayState> Missing(DisplaySnapshot snap)
+        {
+            List<DisplayState> miss = new List<DisplayState>();
+            List<DispInfo> now = Displays();
+            foreach (DisplayState st in snap.Items)
+            {
+                bool found = false;
+                foreach (DispInfo d in now)
+                {
+                    if (string.Equals(d.Name, st.Name, StringComparison.OrdinalIgnoreCase)) { found = true; break; }
+                }
+                if (!found) miss.Add(st);
+            }
+            return miss;
+        }
+
+        // switches the missing displays on again with the mode they had. The primary display may have another size now, so a display
+        // that sat right of / below it moves with its edge (it keeps touching the primary on the same side with the same gap).
+        public static int Reattach(DisplaySnapshot snap, List<DisplayState> missing)
+        {
+            if (missing == null || missing.Count == 0) return 0;
+            int curW = snap.PrimW, curH = snap.PrimH;
+            foreach (DispInfo d in Displays())
+            {
+                if (d.Primary && d.W > 0 && d.H > 0) { curW = d.W; curH = d.H; break; }
+            }
+            int done = 0;
+            foreach (DisplayState st in missing)
+            {
+                DEVMODE dm = st.Dm;
+                dm.dmPositionX = (st.X >= snap.PrimW) ? st.X - snap.PrimW + curW : st.X;
+                dm.dmPositionY = (st.Y >= snap.PrimH) ? st.Y - snap.PrimH + curH : st.Y;
+                // PELSWIDTH | PELSHEIGHT | DISPLAYFREQUENCY | BITSPERPEL | POSITION | DISPLAYORIENTATION
+                dm.dmFields = 0x80000 | 0x100000 | 0x400000 | 0x40000 | 0x20 | 0x80;
+                // CDS_UPDATEREGISTRY | CDS_NORESET: the changes are collected and applied together below
+                if (ChangeDisplaySettingsExW(st.Name, ref dm, IntPtr.Zero, 0x1u | 0x10000000u, IntPtr.Zero) == 0) done++;
+            }
+            ChangeDisplaySettingsExCommit(null, IntPtr.Zero, IntPtr.Zero, 0u, IntPtr.Zero);
+            return done;
+        }
+
+        // "extend these displays" (what Win+P > Extend does): switches on every connected display
+        public static int ExtendTopology()
+        {
+            return SetDisplayConfig(0, IntPtr.Zero, 0, IntPtr.Zero, 0x80u | 0x4u);   // SDC_APPLY | SDC_TOPOLOGY_EXTEND
+        }
+
+        // extends the desktop if a display is connected but not attached (used after the monitor devices were enabled again)
+        public static bool ExtendIfInactive()
+        {
+            int attached = 0, present = 0;
+            for (uint i = 0; i < 32; i++)
+            {
+                DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
+                dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+                if (!EnumDisplayDevicesW(null, i, ref dd, 0)) break;
+                if ((dd.StateFlags & 0x8) != 0) continue;      // mirroring driver (remote / virtual display)
+                present++;
+                if ((dd.StateFlags & 0x1) != 0) attached++;
+            }
+            if (present <= attached) return false;
+            return ExtendTopology() == 0;
+        }
+    }
+
+    // =====================================================================
+    //  The resolution the user started with. It is remembered between runs (it is the first preset in the window)
+    //  in %ProgramData%\nv_custom_res_original.txt. Delete that file to make the program forget it.
+    // =====================================================================
+    public class OriginalMode
+    {
+        public int W, H, Hz;
+        public string Desc = "", Monitor = "";
+
+        public static string StateFile
+        {
+            get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "nv_custom_res_original.txt"); }
+        }
+
+        public static OriginalMode Load()
+        {
+            try
+            {
+                if (!File.Exists(StateFile)) return null;
+                string[] lines = File.ReadAllLines(StateFile, Encoding.UTF8);
+                if (lines.Length == 0) return null;
+                string[] p = lines[0].Split('\t');
+                if (p.Length < 3) return null;
+                OriginalMode m = new OriginalMode();
+                m.W = int.Parse(p[0], CultureInfo.InvariantCulture);
+                m.H = int.Parse(p[1], CultureInfo.InvariantCulture);
+                m.Hz = int.Parse(p[2], CultureInfo.InvariantCulture);
+                if (p.Length > 3) m.Desc = p[3];
+                if (p.Length > 4) m.Monitor = p[4];
+                return (m.W >= 320 && m.H >= 200) ? m : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        public void Save()
+        {
+            string line = W.ToString(CultureInfo.InvariantCulture) + "\t" + H.ToString(CultureInfo.InvariantCulture) + "\t" + Hz.ToString(CultureInfo.InvariantCulture)
+                + "\t" + (Desc ?? "").Replace('\t', ' ') + "\t" + (Monitor ?? "").Replace('\t', ' ');
+            File.WriteAllText(StateFile, line + "\r\n", new UTF8Encoding(false));
+        }
+
+        // the same graphics card and (if both are known) the same monitor
+        private bool Same(string desc, string monitor)
+        {
+            if ((desc ?? "") != Desc) return false;
+            string mon = monitor ?? "";
+            return Monitor.Length == 0 || mon.Length == 0 || Monitor == mon;
+        }
+
+        // Decides which resolution counts as the original one and remembers it.
+        //  desk* = the mode of the desktop now, sig* = the signal that really goes to the monitor (0 if unknown).
+        //  A GPU-stretched desktop is smaller than the signal, and the signal is then the monitor's own size.
+        public static OriginalMode Resolve(string desc, string monitor, int deskW, int deskH, int deskHz, int sigW, int sigH)
+        {
+            OriginalMode saved = Load();
+            if (deskW <= 0 || deskH <= 0) return saved;
+            bool stretched = sigW >= deskW && sigH >= deskH && (sigW > deskW || sigH > deskH);
+            int nw = stretched ? sigW : deskW;
+            int nh = stretched ? sigH : deskH;
+            if (saved != null && saved.Same(desc, monitor))
+            {
+                bool keep;
+                if (stretched) keep = (saved.W == nw && saved.H == nh);                     // the monitor's own size wins
+                else keep = ((long)deskW * deskH <= (long)saved.W * saved.H);               // a bigger desktop than the "original" means a new monitor
+                if (keep)
+                {
+                    bool upd = false;
+                    if (!stretched && deskW == saved.W && deskH == saved.H && deskHz > 0 && deskHz != saved.Hz) { saved.Hz = deskHz; upd = true; }
+                    if (saved.Monitor.Length == 0 && (monitor ?? "").Length > 0) { saved.Monitor = monitor; upd = true; }
+                    if (upd) { try { saved.Save(); } catch (Exception) { } }
+                    return saved;
+                }
+            }
+            OriginalMode m = new OriginalMode();
+            m.W = nw; m.H = nh; m.Hz = deskHz; m.Desc = desc ?? ""; m.Monitor = monitor ?? "";
+            try { m.Save(); } catch (Exception) { }
+            return m;
         }
     }
 
@@ -1159,6 +1449,14 @@ namespace CustomRes
                 }
             }
             if (allOk) { try { File.Delete(StateFile); } catch (Exception) { } }
+            // Windows 10/11 can leave a display switched off after its monitor device was disabled and enabled again:
+            // if a display is connected but not on the desktop, the desktop is extended onto it
+            try
+            {
+                System.Threading.Thread.Sleep(2500);
+                if (Gdi.ExtendIfInactive()) log(Strings.T("disp_extended"), 1);
+            }
+            catch (Exception) { }
         }
     }
 
@@ -1199,8 +1497,30 @@ namespace CustomRes
         int ColorDiff(ColorSnapshot snap);        // the mask of the parts that differ now
     }
 
-    public class WinPlatform : IPlatform, IColorPlatform
+    // optional part of the platform: what the monitor itself reports as possible
+    public interface IModePlatform
     {
+        int MaxRefresh(string gdiName, int w, int h);
+        int NvDeleteSameSize(uint id, uint w, uint h, double hz);   // removes saved 1:1 custom resolutions of this size and refresh rate
+    }
+
+    // optional part of the platform: keeps every display that was on before switched on
+    public interface IDisplayPlatform
+    {
+        DisplaySnapshot DisplaysSave();
+        List<DisplayState> DisplaysMissing(DisplaySnapshot snap);
+        int DisplaysReattach(DisplaySnapshot snap, List<DisplayState> missing);
+        int DisplaysExtend();
+    }
+
+    public class WinPlatform : IPlatform, IColorPlatform, IModePlatform, IDisplayPlatform
+    {
+        public DisplaySnapshot DisplaysSave() { return Gdi.Snapshot(); }
+        public List<DisplayState> DisplaysMissing(DisplaySnapshot snap) { return Gdi.Missing(snap); }
+        public int DisplaysReattach(DisplaySnapshot snap, List<DisplayState> missing) { return Gdi.Reattach(snap, missing); }
+        public int DisplaysExtend() { return Gdi.ExtendTopology(); }
+        public int MaxRefresh(string n, int w, int h) { return Gdi.MaxRefresh(n, w, h); }
+        public int NvDeleteSameSize(uint id, uint w, uint h, double hz) { return NvApi.DeleteSameSize(id, w, h, hz); }
         public ColorSnapshot ColorSave(string n) { return Colors.Save(n); }
         public int ColorRestore(ColorSnapshot s) { return Colors.Restore(s); }
         public int ColorDiff(ColorSnapshot s) { return Colors.Diff(s); }
@@ -1337,6 +1657,8 @@ namespace CustomRes
         public double Hz;
         public bool DisableMonitors = true;
         public bool Stretch = true;
+        public bool DisableWithSeveralDisplays = false;   // by default the monitor devices are NOT disabled when several displays are connected
+        public bool AllowOverRefresh = false;  // skip the check "refresh rate <= what the monitor lists for its native resolution"
         public bool KeepColors = true;         // save brightness/contrast/gamma/vibrance/hue and put them back if the driver resets them
         public bool AskReenable = true;        // console: ask at the end; GUI: use ReenableMonitors
         public bool ReenableMonitors = true;
@@ -1388,18 +1710,29 @@ namespace CustomRes
 
         private class Cand
         {
-            public string Name; public uint Type; public bool Scaled;
+            public string Name; public uint Type; public bool Scaled; public bool Native;
             public Cand(string n, uint ty, bool sc) { Name = n; Type = ty; Scaled = sc; }
         }
 
         // Stretching: NVIDIA Control Panel creates a GPU-scaled custom resolution with the "Automatic" timing - the monitor keeps
         // receiving its native timing and the GPU stretches the (smaller) source mode. A custom timing of the same size as the
         // source would be sent to the monitor 1:1 and the monitor would decide how to scale it (usually with side bars).
-        private static bool Create(IPlatform p, uint id, Timing t, bool stretch, Action<string, int> log, out double realHz, out int lastSt, out bool scaled)
+        //
+        // If the requested size is the monitor's own size (for example 2560x1440 on a 2560x1440 monitor), the driver's "Automatic"
+        // timing has exactly that size: it is the timing the monitor itself reports. It is used as it is (native = true) and nothing
+        // custom is created or saved. Replacing it with our own CVT-RB timing would send the monitor a signal it did not ask for.
+        private static bool Create(IPlatform p, uint id, Timing t, bool stretch, bool allowCleanup, Action<string, int> log, out double realHz, out int lastSt, out bool scaled, out bool native)
         {
-            realHz = 0; lastSt = 0; scaled = false;
+            realHz = 0; lastSt = 0; scaled = false; native = false;
             List<Cand> plan = new List<Cand>();
-            if (stretch) { plan.Add(new Cand("Automatic", 1, true)); plan.Add(new Cand("Current", 0, true)); }
+            if (stretch)
+            {
+                plan.Add(new Cand("Automatic", 1, true));
+                plan.Add(new Cand("Current", 0, true));
+                Cand own = new Cand("Automatic", 1, false);
+                own.Native = true;
+                plan.Add(own);
+            }
             plan.Add(new Cand("CVT-RB", 6, false));
             plan.Add(new Cand("Automatic", 1, false));
             plan.Add(new Cand("CVT", 5, false));
@@ -1413,9 +1746,32 @@ namespace CustomRes
                 bool bigger = pt[0] >= t.W && pt[1] >= t.H && (pt[0] > t.W || pt[1] > t.H);
                 bool exact = pt[0] == t.W && pt[1] == t.H;
                 bool refreshOk = Math.Abs(real - t.Hz) / t.Hz <= 0.01;
-                if (c.Scaled && !bigger) { log(T("att_not_native", c.Name, pt[0], pt[1], real), LvWarn); continue; }
+                if (c.Scaled && !bigger) { if (!exact) log(T("att_not_native", c.Name, pt[0], pt[1], real), LvWarn); continue; }
                 if (!c.Scaled && !exact) { log(T("att_mismatch", c.Name, pt[0], pt[1], real), LvWarn); continue; }
                 if (!refreshOk) { log(T("att_mismatch", c.Name, pt[0], pt[1], real), LvWarn); continue; }
+                if (c.Native)
+                {
+                    if (allowCleanup)
+                    {
+                        // an older run (or another tool) may have saved a 1:1 custom timing of this very size: the driver then offers it
+                        // instead of the monitor's own one. Remove it and ask the driver again.
+                        IModePlatform mp2 = p as IModePlatform;
+                        int gone = 0;
+                        if (mp2 != null)
+                        {
+                            try { gone = mp2.NvDeleteSameSize(id, (uint)t.W, (uint)t.H, t.Hz); } catch (Exception) { gone = 0; }
+                        }
+                        if (gone > 0)
+                        {
+                            log(T("stale_custom_removed", t.W, t.H, t.Hz), LvWarn);
+                            p.Sleep(1500);
+                            return Create(p, id, t, stretch, false, log, out realHz, out lastSt, out scaled, out native);
+                        }
+                    }
+                    realHz = real; scaled = false; native = true;
+                    log(T("att_native", c.Name, pt[0], pt[1], real), LvOk);
+                    return true;
+                }
                 st = p.NvTry(id);
                 if (st != 0) { log(T("att_try_fail", c.Name, p.NvErr(st), st), LvWarn); lastSt = st; continue; }
                 realHz = real;
@@ -1435,6 +1791,35 @@ namespace CustomRes
         private static bool ModeMatches(int[] cur, Timing t, double realHz)
         {
             return cur != null && cur[0] == t.W && cur[1] == t.H && Math.Abs(cur[2] - realHz) <= 1.0;
+        }
+
+        // Every display that was on before must still be on afterwards. Windows 10/11 can switch a display off when monitor devices are
+        // disabled and enabled, or when the display configuration changes. A display that went missing is switched on again at its old place.
+        // Returns how many displays were missing.
+        private static int KeepDisplays(IPlatform p, IDisplayPlatform dp, DisplaySnapshot snap, Action<string, int> log)
+        {
+            if (dp == null || snap == null || snap.Items.Count < 2) return 0;
+            int lost = 0;
+            try
+            {
+                List<DisplayState> miss = dp.DisplaysMissing(snap);
+                if (miss.Count == 0) return 0;
+                lost = miss.Count;
+                foreach (DisplayState st in miss) log(T("disp_lost", st.Name, st.W, st.H), LvWarn);
+                dp.DisplaysReattach(snap, miss);
+                p.Sleep(2500);
+                miss = dp.DisplaysMissing(snap);
+                if (miss.Count > 0)
+                {
+                    dp.DisplaysExtend();
+                    p.Sleep(3000);
+                    miss = dp.DisplaysMissing(snap);
+                }
+                if (miss.Count == 0) log(T("disp_back"), LvOk);
+                else { foreach (DisplayState st2 in miss) log(T("disp_still_off", st2.Name), LvErr); }
+            }
+            catch (Exception) { }
+            return lost;
         }
 
         private static string ColorNames(int mask)
@@ -1478,6 +1863,9 @@ namespace CustomRes
             int stepNo = 0;
             int stepTotal = 0;
             IColorPlatform cp = o.KeepColors ? (p as IColorPlatform) : null;
+            IModePlatform mp = p as IModePlatform;
+            IDisplayPlatform dp = p as IDisplayPlatform;
+            DisplaySnapshot screens = null;
             ColorSnapshot colors = null;
             int colorFixed = 0;
             try
@@ -1500,6 +1888,12 @@ namespace CustomRes
 
                 if (p.HasSavedMonitors()) { log(T("stale_state"), LvWarn); p.RestoreMonitors(log); p.Sleep(3000); }
 
+                // the displays that are on now: all of them must still be on at the end
+                if (dp != null) { try { screens = dp.DisplaysSave(); } catch (Exception) { screens = null; } }
+                int nDisp = (screens != null) ? screens.Items.Count : disp.Count;
+                int build = WinInfo.Build();
+                log(T("env_info", build >= 22000 ? "11" : "10", build, nDisp), LvDim);
+
                 p.NvInit();
                 uint id = p.NvDisplayId(prim.Name);
 
@@ -1511,6 +1905,25 @@ namespace CustomRes
                     else { colors = null; log(T("col_none"), LvWarn); }
                 }
 
+                // The picture goes to the monitor at its native resolution, so a refresh rate that the monitor does not list for that
+                // resolution means an out-of-range signal (distorted picture, noise, artifacts). Checked before the monitors are disabled,
+                // because with the monitor devices disabled Windows does not limit the list any more.
+                if (o.Stretch && mp != null && !o.AllowOverRefresh)
+                {
+                    int nw = prim.W, nh = prim.H;
+                    double[] sig0 = null;
+                    try { sig0 = p.NvCurrentSignal(id, (uint)t.W, (uint)t.H, o.Hz); } catch (Exception) { sig0 = null; }
+                    if (sig0 != null && sig0.Length >= 2 && sig0[0] > 0 && sig0[1] > 0) { nw = (int)sig0[0]; nh = (int)sig0[1]; }
+                    int maxHz = 0;
+                    try { maxHz = mp.MaxRefresh(prim.Name, nw, nh); } catch (Exception) { maxHz = 0; }
+                    if (maxHz > 0 && o.Hz > maxHz + 1.0)
+                    {
+                        res.Status = T("hz_over_limit", maxHz, nw, nh, o.Hz);
+                        log(res.Status, LvErr);
+                        return res;
+                    }
+                }
+
                 // the untouched configuration: used to build the stretched one and to roll back
                 NvConfig orig = null;
                 int primIdx = -1;
@@ -1520,10 +1933,18 @@ namespace CustomRes
                     primIdx = Layout.FindPrimary(orig, id);
                     if (primIdx < 0) log(T("stretch_unavailable"), LvWarn);
                 }
+                // With several displays the monitor devices are left alone: on Windows 10/11 a disabled monitor device can drop its display
+                // from the desktop, and after it is enabled again the display does not always come back.
+                bool doDisable = o.DisableMonitors;
+                if (doDisable && nDisp > 1 && !o.DisableWithSeveralDisplays)
+                {
+                    doDisable = false;
+                    log(T("mon_skip_multi", nDisp), LvWarn);
+                }
                 // disable + create + [stretch] + check + save
-                stepTotal = (o.DisableMonitors ? 1 : 0) + 1 + ((o.Stretch && primIdx >= 0) ? 1 : 0) + 2;
+                stepTotal = (doDisable ? 1 : 0) + 1 + ((o.Stretch && primIdx >= 0) ? 1 : 0) + 2;
 
-                if (o.DisableMonitors)
+                if (doDisable)
                 {
                     Step(log, ref stepNo, stepTotal, "step_disable");
                     disabledByUs = p.DisableMonitors(log) > 0;
@@ -1532,14 +1953,14 @@ namespace CustomRes
 
                 // ---- create the custom resolution (Try = the same as "Test" in NVIDIA Control Panel) ----
                 Step(log, ref stepNo, stepTotal, "step_create");
-                double realHz; int lastSt; bool scaledTiming;
-                if (!Create(p, id, t, o.Stretch, log, out realHz, out lastSt, out scaledTiming))
+                double realHz; int lastSt; bool scaledTiming, nativeMode;
+                if (!Create(p, id, t, o.Stretch, true, log, out realHz, out lastSt, out scaledTiming, out nativeMode))
                 {
                     res.Status = T("all_rejected", p.NvErr(lastSt), lastSt);
                     log("  " + res.Status, LvErr);
                     return res;
                 }
-                log(T("accepted"), LvOk);
+                if (!nativeMode) log(T("accepted"), LvOk);
 
                 // ---- stretch right away: GPU scaling to the native timing, other monitors keep their place ----
                 bool saved = false, stretched = false;
@@ -1547,15 +1968,18 @@ namespace CustomRes
                 if (o.Stretch && primIdx >= 0)
                 {
                     Step(log, ref stepNo, stepTotal, "step_stretch");
-                    int st = p.NvSave(id, o.SaveOutputOnly, o.SaveMonitorOnly);   // the mode has to be in the driver's list first
-                    if (st != 0)
+                    if (!nativeMode)
                     {
-                        res.Status = T("save_fail", p.NvErr(st), st);
-                        log("  " + res.Status, LvErr);
-                        p.NvRevert(id);
-                        return res;
+                        int st = p.NvSave(id, o.SaveOutputOnly, o.SaveMonitorOnly);   // the mode has to be in the driver's list first
+                        if (st != 0)
+                        {
+                            res.Status = T("save_fail", p.NvErr(st), st);
+                            log("  " + res.Status, LvErr);
+                            p.NvRevert(id);
+                            return res;
+                        }
+                        saved = true;
                     }
-                    saved = true;
                     applied = Layout.BuildStretch(orig, primIdx, t.W, t.H, o.Hz);
                     int bad = p.NvSetConfig(applied, F_VALIDATE);
                     if (bad == 0) bad = ApplyCfg(p, applied, 0);
@@ -1600,6 +2024,7 @@ namespace CustomRes
                     }
                 }
 
+                KeepDisplays(p, dp, screens, log);                 // all displays on, as before
                 colorFixed |= KeepColors(p, cp, colors, log);      // so that the picture shown for the test already has your colors
 
                 bool keep = cb.ConfirmKeep(T("keep_question"), o.TestSeconds);
@@ -1608,7 +2033,7 @@ namespace CustomRes
                     p.NvRevert(id);
                     if (applied != null && orig != null) { ApplyCfg(p, orig, 0); log(T("rollback_note"), LvWarn); }
                     if (saved) p.NvDeleteCustom(id);
-                    if (colors != null) { p.Sleep(1500); KeepColors(p, cp, colors, log); }
+                    if (colors != null || screens != null) { p.Sleep(1500); KeepDisplays(p, dp, screens, log); KeepColors(p, cp, colors, log); }
                     res.Status = T("reverted");
                     log("  " + res.Status, LvWarn);
                     return res;
@@ -1616,7 +2041,7 @@ namespace CustomRes
 
                 // ---- save ----
                 Step(log, ref stepNo, stepTotal, "step_save");
-                if (!saved)
+                if (!saved && !nativeMode)
                 {
                     int st = p.NvSave(id, o.SaveOutputOnly, o.SaveMonitorOnly);
                     if (st != 0)
@@ -1628,8 +2053,11 @@ namespace CustomRes
                     }
                     saved = true;
                 }
-                if (p.NvHasCustom(id, (uint)t.W, (uint)t.H, scaledTiming ? -1.0 : t.Hz)) log(T("saved_listed"), LvOk);
-                else log(T("saved_notlisted"), LvWarn);
+                if (!nativeMode)
+                {
+                    if (p.NvHasCustom(id, (uint)t.W, (uint)t.H, scaledTiming ? -1.0 : t.Hz)) log(T("saved_listed"), LvOk);
+                    else log(T("saved_notlisted"), LvWarn);
+                }
 
                 int winRc = 0;
                 if (stretched)
@@ -1649,7 +2077,7 @@ namespace CustomRes
                     winRc = p.SetWindowsMode(prim.Name, t.W, t.H, (int)Math.Round(realHz), true);
                 }
 
-                if (colors != null) { p.Sleep(1500); colorFixed |= KeepColors(p, cp, colors, log); }
+                if (colors != null || screens != null) { p.Sleep(1500); KeepDisplays(p, dp, screens, log); colorFixed |= KeepColors(p, cp, colors, log); }
 
                 if (winRc != 0)
                 {
@@ -1658,7 +2086,7 @@ namespace CustomRes
                 }
                 else
                 {
-                    res.Status = stretched ? T("done_stretch") : T("done");
+                    res.Status = stretched ? (nativeMode ? T("done_native") : T("done_stretch")) : (nativeMode ? T("done_native") : T("done"));
                     res.Success = true;
                     log("  " + res.Status, LvOk);
                 }
@@ -1671,6 +2099,7 @@ namespace CustomRes
                     {
                         keepDisabled = true;
                         log(T("keep_disabled", o.RestoreHint), LvWarn);
+                        log(T("keep_disabled_warn"), LvWarn);
                     }
                     else
                     {
@@ -1692,6 +2121,7 @@ namespace CustomRes
                             if (!ok) { log(T("persist_lost"), LvWarn); p.SetWindowsMode(prim.Name, t.W, t.H, (int)Math.Round(realHz), true); }
                         }
                         if (ok) log(T("persist_ok", t.W, t.H), LvOk);
+                        KeepDisplays(p, dp, screens, log);
                         colorFixed |= KeepColors(p, cp, colors, log);
                     }
                 }
@@ -1709,7 +2139,7 @@ namespace CustomRes
                 if (disabledByUs && !keepDisabled)
                 {
                     try { p.RestoreMonitors(log); } catch (Exception) { }
-                    if (colors != null) { try { p.Sleep(4000); KeepColors(p, cp, colors, log); } catch (Exception) { } }
+                    if (colors != null || screens != null) { try { p.Sleep(4000); KeepDisplays(p, dp, screens, log); KeepColors(p, cp, colors, log); } catch (Exception) { } }
                 }
             }
         }
@@ -1747,6 +2177,8 @@ $argLine = "$env:CR_ARG"
 $isRestore = $argLine -match '(^|\s)[/-]restore(\s|$)'
 $noDisable = $argLine -match '(^|\s)[/-]nodisable(\s|$)'
 $noColors = $argLine -match '(^|\s)[/-]nocolors?(\s|$)'
+$force = $argLine -match '(^|\s)[/-]force(\s|$)'
+$disableAll = $argLine -match '(^|\s)[/-]disableall(\s|$)'
 if ($argLine -match '(^|\s)[/-]nostretch(\s|$)') { $Stretch = $false }
 if ($argLine -match '(^|\s)[/-]ru(\s|$)') { [CustomRes.Strings]::Lang = 'ru' }
 elseif ($argLine -match '(^|\s)[/-]en(\s|$)') { [CustomRes.Strings]::Lang = 'en' }
@@ -1815,6 +2247,8 @@ try {
     $opt.Stretch = $Stretch
     $opt.DisableMonitors = -not $noDisable
     $opt.KeepColors = -not $noColors
+    $opt.AllowOverRefresh = [bool]$force
+    $opt.DisableWithSeveralDisplays = [bool]$disableAll
     $opt.AskReenable = $true
     $opt.RestoreHint = ([IO.Path]::GetFileName($env:CR_SELF) + ' /restore')
     $opt.TestSeconds = $TestSeconds
