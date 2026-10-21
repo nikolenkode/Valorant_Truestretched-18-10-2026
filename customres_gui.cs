@@ -841,7 +841,7 @@ namespace CustomRes
             cardOpt.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             chkStretch.SetBounds(20, 40, 632, 28); chkStretch.Checked = true;
             chkDisable.SetBounds(20, 74, 632, 28); chkDisable.Checked = true;
-            chkReenable.SetBounds(52, 108, 600, 28); chkReenable.Checked = true;   // monitors left disabled = no limits from the monitor = artifacts later
+            chkReenable.SetBounds(52, 108, 600, 28); chkReenable.Checked = false;   // monitors left disabled = no limits from the monitor = artifacts later
             chkDisable.CheckedChanged += delegate { chkReenable.Enabled = chkDisable.Checked && !busy; };
             cardOpt.Controls.Add(chkStretch); cardOpt.Controls.Add(chkDisable); cardOpt.Controls.Add(chkReenable);
 

@@ -1,6 +1,6 @@
 <p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
 
-# NVIDIA Custom Resolution
+# VALORANT Custom Resolution
 
 > Stretched resolutions on NVIDIA GPUs without the Control Panel maze: no black bars, one confirmation, automatic rollback, and your brightness and color settings stay put.
 
@@ -8,7 +8,7 @@
 
 ## What it is
 
-NVIDIA Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
+VALORANT Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
 
 It is made for people who play on stretched resolutions (for example 1280x960 or 900x573 on a 16:9 monitor in competitive shooters) and do not want to click through the same dialogs every time.
 
