@@ -12,7 +12,10 @@ if not exist "%CSC%" (
 )
 set "ICONARG="
 if exist app.ico set "ICONARG=/win32icon:app.ico"
-"%CSC%" /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /out:CustomRes.exe /win32manifest:app.manifest %ICONARG% /reference:System.dll /reference:System.Windows.Forms.dll /reference:System.Drawing.dll *.cs
+rem agent.png (the figure in the preview circle) is built into the exe, so the exe stays a single file.
+set "RESARG="
+if exist agent.png set "RESARG=/resource:agent.png,CustomRes.agent.png"
+"%CSC%" /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /out:CustomRes.exe /win32manifest:app.manifest %ICONARG% %RESARG% /reference:System.dll /reference:System.Windows.Forms.dll /reference:System.Drawing.dll *.cs
 if errorlevel 1 (
     echo Build failed.
     pause

@@ -1,6 +1,6 @@
 <p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
 
-# VALORANT Custom Resolution
+# NVIDIA Custom Resolution
 
 > Stretched resolutions on NVIDIA GPUs without the Control Panel maze: no black bars, one confirmation, automatic rollback, and your brightness and color settings stay put.
 
@@ -8,7 +8,7 @@
 
 ## What it is
 
-VALORANT Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
+NVIDIA Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
 
 It is made for people who play on stretched resolutions (for example 1280x960 or 900x573 on a 16:9 monitor in competitive shooters) and do not want to click through the same dialogs every time.
 
@@ -30,11 +30,11 @@ A custom resolution with its own timing is sent to the monitor as is. The monito
 - **Only the primary display changes.** Other monitors keep their resolution, refresh rate and position.
 - **Going back to the native resolution is safe.** If you enter the monitor's own resolution (for example 2560x1440), the program uses the timing the monitor itself reports instead of inventing one, and nothing custom is saved. A stale custom timing of exactly that size left in the driver is removed.
 - **No out-of-range refresh rates.** In stretch mode a refresh rate above what the monitor lists for its native resolution is refused before anything changes.
-- **Works with several displays on Windows 10/11.** Every display that was on stays on: the monitor devices are not disabled when more than one display is connected, and a display that Windows drops anyway is switched back on at its old place.
+- **Works with several displays on Windows 10/11.** The drivers of all monitors are disabled, and every display that was on is checked afterwards: a display that Windows drops is switched back on at its old place.
 - **Your color settings are kept.** Brightness, contrast, gamma, digital vibrance (saturation) and hue are saved first and put back if the driver resets them.
 - **One confirmation, automatic rollback.** If you do not confirm within 15 seconds, the original configuration comes back and the new resolution is deleted.
 - **A log that explains itself.** Every step, every NVAPI error code and the signal that really goes to the monitor are printed.
-- **Works with EDID-limited monitors.** While setting up, it can disable the monitor devices in Device Manager (the usual workaround when the driver refuses modes that are not in the monitor's EDID) and enables them again afterwards, also after errors and on Ctrl+C. With several displays connected this step is skipped, because it can switch the other displays off (see Windows 11 below).
+- **Works with EDID-limited monitors.** While setting up, it can disable the monitor devices in Device Manager (the usual workaround when the driver refuses modes that are not in the monitor's EDID) and enables them again afterwards, also after errors and on Ctrl+C. With several displays connected the displays are checked afterwards (see Windows 11 below).
 - **English and Russian** in both versions.
 
 ## Quick start
@@ -100,7 +100,7 @@ To return, enter the monitor's own resolution (for example `2560x1440`) and its 
 Two things could make "going back" produce noise, flicker and artifacts, and both are handled:
 
 - **A custom timing at the native size.** Earlier versions only treated a mode as GPU-scaled when the driver's timing was larger than the request. For the native size it is not, so the program fell back to its own CVT-RB timing for 2560x1440 and saved it. That timing is not the one the monitor reports (blanking and pixel clock differ, especially at high refresh rates), and the driver then offered it in place of the native mode.
-- **Monitors left disabled in Device Manager.** While the monitor devices are disabled, the driver does not check modes against the monitor's limits, so any refresh rate is accepted and sent. **Enable the monitors again afterwards** is now on by default, the program warns when monitors are still disabled from a previous run, and the refresh-rate check below runs before the monitors are disabled.
+- **Monitors left disabled in Device Manager.** While the monitor devices are disabled, the driver does not check modes against the monitor's limits, so any refresh rate is accepted and sent. **Enable the monitors again afterwards** is off by default, so the monitors stay disabled after applying until you press **Restore monitors**; the program reminds you at start-up when monitors are still disabled from a previous run, and the refresh-rate check below runs before the monitors are disabled.
 
 ### Refresh-rate check
 
@@ -108,10 +108,10 @@ In stretch mode the picture is sent to the monitor at its native resolution, so 
 
 ### Windows 11 and several displays
 
-Disabling a monitor in Device Manager is a workaround for monitors whose EDID does not list the mode. On Windows 10/11 a disabled monitor device can drop its display from the desktop, and after it is enabled again the display does not always come back. Earlier versions disabled **every** monitor device, so the second monitor could stay off after applying. Now:
+Disabling a monitor in Device Manager is a workaround for monitors whose EDID does not list the mode. On Windows 10/11 a disabled monitor device can drop its display from the desktop, and after it is enabled again the display does not always come back. So the program disables the drivers of **all** monitors, as the workaround needs, and then makes sure the displays stay on:
 
-- **Several displays connected: the monitor devices are left enabled** (the log says so). If the driver refuses the resolution, connect only one display and run again. The console option `/disableall` brings the old behaviour back (it can switch the other displays off).
-- **All displays are checked.** The program remembers which displays are on, with their mode and place. After the stretched configuration is applied, after saving, after the monitors are enabled again and after a rollback it checks that all of them are still on. A missing display is switched on again with its old mode and placed against the edge of the primary display (same side, same gap). If that fails, the desktop is extended onto it, like Win+P > Extend.
+- **All monitor devices are disabled.** Right after that the program checks the displays (see the next point), so a display that Windows switches off with its monitor is brought back at once. If your Windows keeps switching the other displays off anyway, the console option `/primaryonly` disables only the monitor device of the primary display; the program finds it through the monitor id and the registry, and if it cannot tell which one it is, it disables none and says so.
+- **All displays are checked.** The program remembers which displays are on, with their mode and place. Right after the monitors are disabled, after the stretched configuration is applied, after saving, after the monitors are enabled again and after a rollback it checks that all of them are still on. A missing display is switched on again with its old mode and placed against the edge of the primary display (same side, same gap). If that fails, the desktop is extended onto it, like Win+P > Extend.
 - **Restore monitors** (and `/restore`) also extend the desktop onto a display that is connected but off.
 - The first lines of the log show the Windows build and the number of displays, which helps when you report a problem.
 
@@ -180,12 +180,12 @@ On the Windows side: `EnumDisplayDevices`, `EnumDisplaySettings`, `ChangeDisplay
 | `/nostretch` | Do not stretch: create a 1:1 mode and apply it through Windows |
 | `/nocolors` | Do not save and restore brightness, contrast, gamma, vibrance and hue (for troubleshooting) |
 | `/force` | Do not refuse a refresh rate above what the monitor lists for its native resolution (can distort the picture) |
-| `/disableall` | Disable the monitor devices even when several displays are connected (can switch the other displays off) |
+| `/primaryonly` | Disable only the monitor device of the primary display (the default is the monitor devices of all displays) |
 
 ## Troubleshooting
 
 - **Black bars on the sides.** Look for the `Signal to the monitor:` line in the log. If it shows the small resolution, the monitor is scaling: in NVIDIA Control Panel set **Adjust desktop size and position** > **Full-screen** and **Perform scaling on** > **GPU**, check the aspect setting in the monitor's own menu, and in the game tick **Override the scaling mode set by games and programs**.
-- **A second monitor is off after applying (Windows 11).** Press Win+P and choose **Extend** (or Settings > System > Display > Multiple displays > **Extend these displays**). The **Restore monitors** button does the same when a display is connected but off. The program no longer disables monitor devices when several displays are connected, and it switches a dropped display back on by itself. If it still happens, attach the log.
+- **A second monitor is off after applying (Windows 11).** Press Win+P and choose **Extend** (or Settings > System > Display > Multiple displays > **Extend these displays**). The **Restore monitors** button does the same when a display is connected but off. The program checks the displays after disabling the monitors and switches a dropped display back on by itself. If it keeps happening, run the console version with `/primaryonly`. If it still happens, attach the log.
 - **Noise, flicker or artifacts after going back to the native resolution.**
   1. Press **Restore monitors** (or run `true_stratched_val.bat /restore`) so that the monitor devices are enabled again.
   2. Run the program, enter the native resolution and the monitor's normal refresh rate (for example `2560x1440` and 144 Hz). It uses the monitor's own timing and removes a stale custom timing of that size.

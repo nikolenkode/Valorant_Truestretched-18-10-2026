@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title NVIDIA Custom Resolution
+title VALORANT Custom Resolution
 set "CR_SELF=%~f0"
 set "CR_ARG=%*"
 
@@ -35,7 +35,7 @@ exit /b
 #  custom_res.bat /nodisable do not disable the monitors (for troubleshooting)
 #  custom_res.bat /nocolors  do not save/restore brightness, contrast, gamma, vibrance, hue (for troubleshooting)
 #  custom_res.bat /force     do not refuse a refresh rate above what the monitor lists (can distort the picture!)
-#  custom_res.bat /disableall disable the monitor devices even if several displays are connected (can switch the others off!)
+#  custom_res.bat /primaryonly disable only the monitor device of the primary display (default: the monitor devices of all displays)
 #  custom_res.bat /nostretch do not stretch (apply the mode 1:1, the monitor decides what to do with it)
 #
 #  The same engine is used by the GUI (CustomRes.exe, see CustomResGui.cs / build.bat).
@@ -52,6 +52,7 @@ $core = @'
 // C# 5 only, so that it compiles with the compiler built into Windows (csc.exe of .NET Framework 4)
 // and with Add-Type in Windows PowerShell 5.1.
 using System;
+using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -173,12 +174,17 @@ namespace CustomRes
             A("att_native", "  {0}: the driver has its own {1}x{2} @ {3:N2} Hz timing (the monitor's native one), so it is used and no custom resolution is created.",
                             "  {0}: у драйвера есть собственный тайминг {1}x{2} @ {3:N2} Гц (родной для монитора), он и используется, кастомное разрешение не создаётся.");
             A("env_info", "  Windows {0} (build {1}); displays attached: {2}.", "  Windows {0} (сборка {1}); подключено дисплеев: {2}.");
-            A("mon_skip_multi", "  {0} displays are connected, so the monitor devices stay enabled: on Windows 10/11 disabling them can switch the other displays off. If the driver refuses the resolution, connect only one display and run again.",
-                                "  Подключено дисплеев: {0}, поэтому устройства мониторов остаются включёнными: в Windows 10/11 их отключение может выключить остальные дисплеи. Если драйвер откажется от разрешения, оставьте подключённым один дисплей и запустите снова.");
+            A("mon_primary_only", "  Only the monitor of the primary display is disabled (/primaryonly); the monitors of the other displays stay enabled.",
+                                  "  Отключается только монитор основного дисплея (/primaryonly); мониторы остальных дисплеев остаются включёнными.");
+            A("mon_primary_unknown", "  Could not tell which monitor device belongs to {0}, so none was disabled.",
+                                     "  Не удалось определить, какое устройство монитора относится к {0}, поэтому ни одно не отключено.");
             A("disp_lost", "  Windows switched a display off: {0} ({1}x{2}). Bringing it back...", "  Windows выключила дисплей: {0} ({1}x{2}). Возвращаю...");
             A("disp_back", "  The display is back on, at its old place.", "  Дисплей снова включён на прежнем месте.");
             A("disp_still_off", "  The display {0} is still off. Turn it on in Windows: Win+P > Extend, or Settings > System > Display.", "  Дисплей {0} всё ещё выключен. Включите его в Windows: Win+P > Расширить, или Параметры > Система > Дисплей.");
             A("disp_extended", "  Another display was switched off: the desktop is extended onto it again.", "  Другой дисплей был выключен: рабочий стол снова расширен на него.");
+            A("gui_pv_native", "Your monitor: {0}×{1}", "Ваш монитор: {0}×{1}");
+            A("gui_pv_stretch", "Stretched ×{0:0.00} wide, ×{1:0.00} tall", "Растянуто ×{0:0.00} по ширине, ×{1:0.00} по высоте");
+            A("gui_pv_bars", "Not stretched: the monitor adds bars", "Без растягивания: монитор добавит полосы");
             A("gui_orig_tip", "Your original resolution, {0}x{1} @ {2} Hz. It is remembered between runs.",
                               "Ваше исходное разрешение, {0}x{1} @ {2} Гц. Запоминается между запусками.");
             A("stale_custom_removed", "  Removed a saved custom {0}x{1} @ {2:N0} Hz timing: it overrode the monitor's own timing for this resolution.",
@@ -227,7 +233,7 @@ namespace CustomRes
             A("go_prompt", "Create and test it in NVIDIA? [Y/n]", "Создать и протестировать в NVIDIA? [Y/n]");
 
             // GUI
-            A("gui_title", "NVIDIA Custom Resolution", "NVIDIA Custom Resolution");
+            A("gui_title", "VALORANT Custom Resolution", "VALORANT Custom Resolution");
             A("gui_display", "Primary display", "Основной дисплей");
             A("gui_display_none", "No NVIDIA primary display found", "Основной дисплей NVIDIA не найден");
             A("gui_resolution", "Resolution", "Разрешение");
@@ -237,8 +243,8 @@ namespace CustomRes
             A("gui_presets", "Presets", "Готовые");
             A("gui_preset_pick", "(pick a preset)", "(выберите готовое)");
             A("gui_options", "Options", "Параметры");
-            A("gui_stretch", "Stretch to the full screen (GPU scaling)", "Растянуть на весь экран (масштабирование на GPU)");
-            A("gui_disable", "Disable the monitors in Device Manager while creating (driver only; skipped when several displays are connected)", "Отключить мониторы в диспетчере устройств на время создания (только драйвер; пропускается, если подключено несколько дисплеев)");
+            A("gui_stretch", "Stretch to the full screen (GPU scaling)", "Растянуть на весь экран");
+            A("gui_disable", "Disable the drivers of all monitors in Device Manager while creating", "Отключить драйверы всех мониторов в диспетчере устройств на время создания");
             A("gui_reenable", "Enable the monitors again afterwards", "Включить мониторы обратно после применения");
             A("gui_apply", "Create and apply", "Создать и применить");
             A("gui_restore", "Restore monitors", "Вернуть мониторы");
@@ -1039,6 +1045,15 @@ namespace CustomRes
             return new int[] { (int)dm.dmPelsWidth, (int)dm.dmPelsHeight, (int)dm.dmDisplayFrequency };
         }
 
+        // the id of the monitor that is connected to this display, like MONITOR\GSM5B09\{4d36e96e-e325-11ce-bfc1-08002be10318}\0007
+        public static string MonitorDeviceId(string gdiName)
+        {
+            DISPLAY_DEVICE mon = new DISPLAY_DEVICE();
+            mon.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+            if (!EnumDisplayDevicesW(gdiName, 0, ref mon, 0)) return null;
+            return mon.DeviceID;
+        }
+
         // the highest refresh rate that Windows lists for this resolution on this display (0 = no such mode in the list)
         public static int MaxRefresh(string dev, int w, int h)
         {
@@ -1427,6 +1442,54 @@ namespace CustomRes
             return done.Count;
         }
 
+        // The PnP instance id (DISPLAY\GSM5B09\5&...) of the monitor that is connected to this display, or null. The monitor id that Windows
+        // gives for a display ends with the "Driver" value of the PnP device; the registry tells which instance has it.
+        public static string InstanceOf(string gdiName)
+        {
+            try
+            {
+                string id = Gdi.MonitorDeviceId(gdiName);
+                if (string.IsNullOrEmpty(id)) return null;
+                string[] part = id.Split('\\');                           // MONITOR \ GSM5B09 \ {class guid} \ 0007
+                if (part.Length < 4 || !string.Equals(part[0], "MONITOR", StringComparison.OrdinalIgnoreCase)) return null;
+                string driver = part[2] + "\\" + part[3];
+                using (RegistryKey model = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\DISPLAY\" + part[1]))
+                {
+                    if (model == null) return null;
+                    foreach (string inst in model.GetSubKeyNames())
+                    {
+                        using (RegistryKey k = model.OpenSubKey(inst))
+                        {
+                            if (k == null) continue;
+                            string d = k.GetValue("Driver") as string;
+                            if (d != null && string.Equals(d, driver, StringComparison.OrdinalIgnoreCase)) return "DISPLAY\\" + part[1] + "\\" + inst;
+                        }
+                    }
+                }
+            }
+            catch (Exception) { }
+            return null;
+        }
+
+        // disables only the monitor device of one display (the other displays are not touched); it is remembered in StateFile
+        public static int DisableFor(string gdiName, Action<string, int> log)
+        {
+            string inst = InstanceOf(gdiName);
+            if (inst == null) { log(Strings.T("mon_primary_unknown", gdiName), 2); return 0; }
+            List<string> lines = RunPs(
+                "try { Disable-PnpDevice -InstanceId " + Q(inst) + " -Confirm:$false -ErrorAction Stop; 'OK|' + " + Q(inst) + " } " +
+                "catch { 'ERR|' + " + Q(inst) + " + '|' + $_.Exception.Message }");
+            int done = 0;
+            foreach (string l in lines)
+            {
+                string[] p = l.Split('|');
+                if (p.Length >= 2 && p[0] == "OK") { done++; log(Strings.T("mon_disabled", gdiName, p[1]), 0); }
+                else if (p.Length >= 2 && p[0] == "ERR") log(Strings.T("mon_disable_fail", gdiName, p.Length > 2 ? p[2] : ""), 2);
+            }
+            if (done > 0) File.WriteAllLines(StateFile, new string[] { inst }, new UTF8Encoding(false));
+            return done;
+        }
+
         public static void RestoreAll(Action<string, int> log)
         {
             if (!File.Exists(StateFile)) return;
@@ -1504,6 +1567,12 @@ namespace CustomRes
         int NvDeleteSameSize(uint id, uint w, uint h, double hz);   // removes saved 1:1 custom resolutions of this size and refresh rate
     }
 
+    // optional part of the platform: disables only the monitor device of one display
+    public interface IMonitorPlatform
+    {
+        int DisableMonitorFor(string gdiName, Action<string, int> log);
+    }
+
     // optional part of the platform: keeps every display that was on before switched on
     public interface IDisplayPlatform
     {
@@ -1513,8 +1582,9 @@ namespace CustomRes
         int DisplaysExtend();
     }
 
-    public class WinPlatform : IPlatform, IColorPlatform, IModePlatform, IDisplayPlatform
+    public class WinPlatform : IPlatform, IColorPlatform, IModePlatform, IDisplayPlatform, IMonitorPlatform
     {
+        public int DisableMonitorFor(string n, Action<string, int> log) { return Monitors.DisableFor(n, log); }
         public DisplaySnapshot DisplaysSave() { return Gdi.Snapshot(); }
         public List<DisplayState> DisplaysMissing(DisplaySnapshot snap) { return Gdi.Missing(snap); }
         public int DisplaysReattach(DisplaySnapshot snap, List<DisplayState> missing) { return Gdi.Reattach(snap, missing); }
@@ -1657,7 +1727,7 @@ namespace CustomRes
         public double Hz;
         public bool DisableMonitors = true;
         public bool Stretch = true;
-        public bool DisableWithSeveralDisplays = false;   // by default the monitor devices are NOT disabled when several displays are connected
+        public bool DisablePrimaryOnly = false;           // true: disable only the monitor device of the primary display (the default is all of them)
         public bool AllowOverRefresh = false;  // skip the check "refresh rate <= what the monitor lists for its native resolution"
         public bool KeepColors = true;         // save brightness/contrast/gamma/vibrance/hue and put them back if the driver resets them
         public bool AskReenable = true;        // console: ask at the end; GUI: use ReenableMonitors
@@ -1865,6 +1935,7 @@ namespace CustomRes
             IColorPlatform cp = o.KeepColors ? (p as IColorPlatform) : null;
             IModePlatform mp = p as IModePlatform;
             IDisplayPlatform dp = p as IDisplayPlatform;
+            IMonitorPlatform mtp = p as IMonitorPlatform;
             DisplaySnapshot screens = null;
             ColorSnapshot colors = null;
             int colorFixed = 0;
@@ -1933,22 +2004,20 @@ namespace CustomRes
                     primIdx = Layout.FindPrimary(orig, id);
                     if (primIdx < 0) log(T("stretch_unavailable"), LvWarn);
                 }
-                // With several displays the monitor devices are left alone: on Windows 10/11 a disabled monitor device can drop its display
-                // from the desktop, and after it is enabled again the display does not always come back.
-                bool doDisable = o.DisableMonitors;
-                if (doDisable && nDisp > 1 && !o.DisableWithSeveralDisplays)
-                {
-                    doDisable = false;
-                    log(T("mon_skip_multi", nDisp), LvWarn);
-                }
+                // The monitor devices of ALL monitors are disabled (then the driver does not limit the modes to what the monitors report).
+                // On Windows 10/11 that can drop a display from the desktop, so the displays are checked right afterwards and a dropped one
+                // is switched back on. /primaryonly disables only the monitor device of the primary display.
+                bool doDisable = o.DisableMonitors, onlyPrimary = false;
+                if (doDisable && o.DisablePrimaryOnly && mtp != null) { onlyPrimary = true; log(T("mon_primary_only"), LvDim); }
                 // disable + create + [stretch] + check + save
                 stepTotal = (doDisable ? 1 : 0) + 1 + ((o.Stretch && primIdx >= 0) ? 1 : 0) + 2;
 
                 if (doDisable)
                 {
                     Step(log, ref stepNo, stepTotal, "step_disable");
-                    disabledByUs = p.DisableMonitors(log) > 0;
+                    disabledByUs = (onlyPrimary ? mtp.DisableMonitorFor(prim.Name, log) : p.DisableMonitors(log)) > 0;
                     p.Sleep(3000);
+                    KeepDisplays(p, dp, screens, log);   // every display that was on must still be on
                 }
 
                 // ---- create the custom resolution (Try = the same as "Test" in NVIDIA Control Panel) ----
@@ -2178,7 +2247,7 @@ $isRestore = $argLine -match '(^|\s)[/-]restore(\s|$)'
 $noDisable = $argLine -match '(^|\s)[/-]nodisable(\s|$)'
 $noColors = $argLine -match '(^|\s)[/-]nocolors?(\s|$)'
 $force = $argLine -match '(^|\s)[/-]force(\s|$)'
-$disableAll = $argLine -match '(^|\s)[/-]disableall(\s|$)'
+$primaryOnly = $argLine -match '(^|\s)[/-]primaryonly(\s|$)'
 if ($argLine -match '(^|\s)[/-]nostretch(\s|$)') { $Stretch = $false }
 if ($argLine -match '(^|\s)[/-]ru(\s|$)') { [CustomRes.Strings]::Lang = 'ru' }
 elseif ($argLine -match '(^|\s)[/-]en(\s|$)') { [CustomRes.Strings]::Lang = 'en' }
@@ -2248,7 +2317,7 @@ try {
     $opt.DisableMonitors = -not $noDisable
     $opt.KeepColors = -not $noColors
     $opt.AllowOverRefresh = [bool]$force
-    $opt.DisableWithSeveralDisplays = [bool]$disableAll
+    $opt.DisablePrimaryOnly = [bool]$primaryOnly
     $opt.AskReenable = $true
     $opt.RestoreHint = ([IO.Path]::GetFileName($env:CR_SELF) + ' /restore')
     $opt.TestSeconds = $TestSeconds
