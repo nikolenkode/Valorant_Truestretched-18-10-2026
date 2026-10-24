@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="../../releases/latest/download/CustomRes.exe"><img src="https://img.shields.io/badge/Download-CustomRes.exe-E11D2E?style=for-the-badge&logo=windows&logoColor=white" alt="Download CustomRes.exe"></a>
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/Console-true__stratched__val.bat-2B2B33?style=for-the-badge" alt="Console true_stratched_val.bat"></a>
+  <a href="../../releases/latest/download/true_stretched_val.bat"><img src="https://img.shields.io/badge/Console-true__stratched__val.bat-2B2B33?style=for-the-badge" alt="Console true_stratched_val.bat"></a>
 </p>
 
 **Contents:** [Download](#download) · [What it is](#what-it-is) · [Stretched resolution in VALORANT](#stretched-resolution-in-valorant) · [The problem it solves](#the-problem-it-solves) · [Quick start with VALORANT](#quick-start-with-valorant) · [The window](#the-window) · [How it works](#how-it-works) · [More examples from the game](#more-examples-from-the-game) · [Console version](#console-version) · [Files, build and internals](#files-build-and-internals) · [Requirements](#requirements) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Status and disclaimer](#status-and-disclaimer)

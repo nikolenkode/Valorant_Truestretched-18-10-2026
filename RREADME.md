@@ -7,8 +7,8 @@
 [English](README.md) | **Русский**
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-CustomRes.exe-E11D2E?style=for-the-badge&logo=windows&logoColor=white" alt="Скачать CustomRes.exe"></a>
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/%D0%9A%D0%BE%D0%BD%D1%81%D0%BE%D0%BB%D1%8C-true__stratched__val.bat-2B2B33?style=for-the-badge" alt="Консоль true_stratched_val.bat"></a>
+  <a href="../../releases/latest/download/CustomRes.exe"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-CustomRes.exe-E11D2E?style=for-the-badge&logo=windows&logoColor=white" alt="Скачать CustomRes.exe"></a>
+  <a href="../../releases/latest/download/true_stretched_val.bat"><img src="https://img.shields.io/badge/%D0%9A%D0%BE%D0%BD%D1%81%D0%BE%D0%BB%D1%8C-true__stratched__val.bat-2B2B33?style=for-the-badge" alt="Консоль true_stratched_val.bat"></a>
 </p>
 
 **Содержание:** [Скачать](#скачать) · [Что это](#что-это) · [Растянутое разрешение в VALORANT](#растянутое-разрешение-в-valorant) · [Какую проблему он решает](#какую-проблему-он-решает) · [Быстрый старт с VALORANT](#быстрый-старт-с-valorant) · [Окно программы](#окно-программы) · [Как это работает](#как-это-работает) · [Ещё примеры из игры](#ещё-примеры-из-игры) · [Консольная версия](#консольная-версия) · [Файлы, сборка и устройство](#файлы-сборка-и-устройство) · [Требования](#требования) · [Если не получается](#если-не-получается) · [Вопросы и ответы](#вопросы-и-ответы) · [Статус и отказ от ответственности](#статус-и-отказ-от-ответственности)
