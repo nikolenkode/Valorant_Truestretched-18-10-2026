@@ -1,4 +1,4 @@
-<p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
+<p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"><a href="../../releases/latest/download/CustomRes.exe"><img src="https://img.shields.io/badge/Download-CustomRes.exe-E11D2E?style=for-the-badge&logo=windows&logoColor=white" alt="Download CustomRes.exe"></a></p>
 
 # NVIDIA Custom Resolution
 
