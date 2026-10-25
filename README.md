@@ -1,4 +1,4 @@
-<p align="center"><a href="../../releases/latest/download/CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
+<p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
 
 # NVIDIA Custom Resolution
 
@@ -7,11 +7,12 @@
 **English** | [Русский](RREADME.md)
 
 <p align="center">
-  <a href="../../releases/latest/download/CustomRes.exe"><img src="https://img.shields.io/badge/Download-CustomRes.exe-E11D2E?style=for-the-badge&logo=windows&logoColor=white" alt="Download CustomRes.exe"></a>
-  <a href="../../releases/latest/download/true_stretched_val.bat"><img src="https://img.shields.io/badge/Console-true__stratched__val.bat-2B2B33?style=for-the-badge" alt="Console true_stratched_val.bat"></a>
+  <a href="../../releases/latest/download/CustomRes.exe"><img src="assets/btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
+  <a href="../../releases/latest/download/true_stratched_val.bat"><img src="assets/btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
 </p>
+<p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p>
 
-**Contents:** [Download](#download) · [What it is](#what-it-is) · [Stretched resolution in VALORANT](#stretched-resolution-in-valorant) · [The problem it solves](#the-problem-it-solves) · [Quick start with VALORANT](#quick-start-with-valorant) · [The window](#the-window) · [How it works](#how-it-works) · [More examples from the game](#more-examples-from-the-game) · [Console version](#console-version) · [Files, build and internals](#files-build-and-internals) · [Requirements](#requirements) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Status and disclaimer](#status-and-disclaimer)
+**Contents:** [Download](#download) · [What it is](#what-it-is) · [Stretched resolution in VALORANT](#stretched-resolution-in-valorant) · [The problem it solves](#the-problem-it-solves) · [Quick start with VALORANT](#quick-start-with-valorant) · [The same by hand](#the-same-by-hand-without-the-program) · [The window](#the-window) · [How it works](#how-it-works) · [More examples from the game](#more-examples-from-the-game) · [Console version](#console-version) · [Files, build and internals](#files-build-and-internals) · [Requirements](#requirements) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Status and disclaimer](#status-and-disclaimer)
 
 ## Download
 
@@ -33,7 +34,7 @@ Windows SmartScreen may say *Windows protected your PC* because the file is not 
 
 NVIDIA Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
 
-It was made for VALORANT players who use a stretched resolution (for example 1566×1080 on a 2560×1440 monitor) and do not want to click through the same dialogs every time. That is why the window is called "VALORANT Custom Resolution". Nothing in it is specific to the game: any game that lets you choose a resolution in fullscreen works the same way.
+It was made for VALORANT players who use a stretched resolution (for example 1566×1080 on a 2560×1440 monitor) and do not want to click through the same dialogs every time. That is why the window is called "VALORANT Custom Resolution". Nothing in it is specific to the game: any game that lets you choose a resolution works the same way.
 
 The program never touches the game. It does not read, inject into or change the game or its files. It only changes the display mode through the NVIDIA driver and Windows, which is what NVIDIA Control Panel and the Windows display settings do.
 
@@ -109,12 +110,34 @@ A first run, step by step, with a 2560×1440 monitor and the 1566×1080 preset.
 5. **Press Create and apply.** The screen goes dark for a moment, the log fills with steps `[1/5]` … `[5/5]`, and a dialog asks **Keep this resolution? Does the picture look right?**
 6. **Look at the desktop.** The taskbar and the icons should fill the whole screen, wider than before. That is the stretched picture. **Keep** (Enter) makes it permanent, **Revert** (Esc) goes back. If you do nothing for 15 seconds, it reverts by itself.
 7. **Set the game.** Start VALORANT, open **Settings > Video > General** and set:
-   - **Display Mode:** Fullscreen
+   - **Display Mode:** Windowed Fullscreen
    - **Resolution:** 1566×1080 (the same as the desktop now)
-   - **Aspect Ratio Method:** Fill, if your version of the game shows this setting
+   - **Aspect Ratio Method:** Fill
 8. **Going back.** When you want your normal desktop again, click the first preset (it shows **your original resolution**, with a small green dot), press **Create and apply**, and keep it. If the monitors stayed disabled, press **Restore monitors**.
 
 Details of each step are in [How it works](#how-it-works).
+
+## The same by hand, without the program
+
+This is what the program automates. If you would rather do it yourself, the whole procedure is three steps:
+
+1. **Disable the monitors in Device Manager.** Press Win+X, open **Device Manager**, expand **Monitors**, right-click each monitor and choose **Disable device**. Only the monitor's entry in the driver is switched off, the screen itself keeps working. While the monitors are disabled, the NVIDIA driver accepts resolutions that the monitor does not list itself.
+2. **Create the custom resolution and apply it.** Open **NVIDIA Control Panel > Display > Change resolution**, click **Customize…**, tick **Enable resolutions not exposed by the display** and click **Create Custom Resolution…**. Enter the width, the height and the refresh rate (for example 1566, 1080, 144), leave the timing standard on **Automatic**, press **Test** and confirm. Then pick the new resolution in the **Custom** list and press **Apply**. If the picture is not stretched over the whole screen (black bars), open **Display > Adjust desktop size and position** and set **Full-screen** and **Perform scaling on: GPU**.
+3. **Set VALORANT.** In **Settings > Video > General** choose **Display Mode: Windowed Fullscreen**, **Resolution:** your custom resolution, and **Aspect Ratio Method: Fill**.
+
+To go back, select your normal resolution in NVIDIA Control Panel and enable the monitors again in Device Manager (**Enable device**).
+
+Steps 1 and 2 are what **Create and apply** does for you, and step 3 is the same in the program's [Quick start](#quick-start-with-valorant). The program also takes care of the things that are easy to get wrong by hand:
+
+| By hand | In the program |
+| --- | --- |
+| Disable every monitor in Device Manager and remember to enable it again | one option, and **Restore monitors** brings them back |
+| Fill in the timing in the dialog and press Test | the driver's own timing is requested and tested, with fallbacks |
+| Set the scaling to GPU / Full-screen in the control panel, where it can get reset | applied in the same step and checked afterwards; the log says what signal the monitor really gets |
+| The second monitor ends up in the wrong place | the other monitors are put back next to the primary one |
+| The driver resets brightness or digital vibrance | they are saved first and put back |
+| If the picture is wrong, you have to find your way back blind | one question, and an automatic rollback after 15 seconds |
+| A refresh rate that is too high for the monitor goes through | it is refused before anything changes |
 
 ## The window
 
@@ -425,7 +448,7 @@ or, when nothing happened, `Color settings checked: nothing was reset.`
 
 1. Look at the `Signal to the monitor:` line. If it shows the small resolution (for example 1566x1080), the monitor is scaling, not the GPU.
 2. In NVIDIA Control Panel set **Adjust desktop size and position** to **Full-screen** and **Perform scaling on** to **GPU**, and tick **Override the scaling mode set by games and programs**.
-3. In VALORANT use **Display Mode: Fullscreen**, the same resolution as the desktop, and **Aspect Ratio Method: Fill** if the game offers it.
+3. In VALORANT use **Display Mode: Windowed Fullscreen**, the same resolution as the desktop, and **Aspect Ratio Method: Fill**.
 4. Check the aspect setting in the monitor's own menu (for example, it should not be set to a 1:1 or "just scan" mode).
 
 ## Console version
@@ -498,7 +521,7 @@ On the Windows side: `EnumDisplayDevices`, `EnumDisplaySettings`, `ChangeDisplay
 ## Troubleshooting
 
 - **The resolution is not in VALORANT's list.** Apply it first and start the game afterwards. The log should say `Saved: the resolution now appears in the NVIDIA custom resolution list.` If it does, restart the game. If it does not, open Windows Settings > System > Display > Advanced display, look at which modes are listed, and attach the log when you report it.
-- **Black bars in VALORANT although the log says the GPU does the scaling.** Go through [example F](#f-black-bars-in-the-game-anyway): the game must be in Fullscreen at the same resolution as the desktop, and NVIDIA Control Panel must override the scaling mode set by games.
+- **Black bars in VALORANT although the log says the GPU does the scaling.** Go through [example F](#f-black-bars-in-the-game-anyway): the game must use Windowed Fullscreen at the same resolution as the desktop with **Aspect Ratio Method: Fill**, and NVIDIA Control Panel must override the scaling mode set by games.
 - **Black bars on the sides.** Look for the `Signal to the monitor:` line in the log. If it shows the small resolution, the monitor is scaling: in NVIDIA Control Panel set **Adjust desktop size and position** > **Full-screen** and **Perform scaling on** > **GPU**, check the aspect setting in the monitor's own menu, and in the game tick **Override the scaling mode set by games and programs**.
 - **A second monitor is off after applying (Windows 11).** Press Win+P and choose **Extend** (or Settings > System > Display > Multiple displays > **Extend these displays**). The **Restore monitors** button does the same when a display is connected but off. The program checks the displays after disabling the monitors and switches a dropped display back on by itself. If it keeps happening, run the console version with `/primaryonly`. If it still happens, attach the log.
 - **Noise, flicker or artifacts after going back to the native resolution.**
@@ -520,7 +543,7 @@ On the Windows side: `EnumDisplayDevices`, `EnumDisplaySettings`, `ChangeDisplay
 
 **Does the resolution stay after a restart?** The custom resolution and the display configuration are saved in the driver, so the stretched mode normally stays. Monitors that the program disabled also stay disabled until you press **Restore monitors** (or run the console version with `/restore`); the program reminds you about it at start-up.
 
-**Can I use it for other games?** Yes. Any game that lets you pick a resolution in fullscreen will see the stretched resolution as the desktop's.
+**Can I use it for other games?** Yes. Any game that lets you pick a resolution will see the stretched resolution as the desktop's.
 
 **What does turning Stretch off do?** The program creates a plain 1:1 mode with its own CVT-RB timing and applies it through Windows. The monitor then scales it and usually adds bars. It is meant for troubleshooting and for real 1:1 modes.
 
