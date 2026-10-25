@@ -148,14 +148,14 @@ The window has no system title bar: it is drawn by the program, in a flat, minim
 Normal window (940×760 and up): the screen and the presets on the left, the numbers and options on the right, the buttons in a row under both, the log at the bottom.
 
 <p align="center">
-  <img src="assets/screenshot-window.png" alt="The window of the program in its normal size" width="700">
+  <img src="screenshot-window.png" alt="The window of the program in its normal size" width="700">
   <br><sub>The normal window (the interface is shown in English; in Russian the layout is the same)</sub>
 </p>
 
 Big window (1100×820 and up, for example full screen on a Full HD or 2K monitor): the options move up under the numbers, the buttons move into the right column under the options, and the preview gets all the extra space. The log stays at the bottom, as wide as the window.
 
 <p align="center">
-  <img src="assets/screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="900">
+  <img src="screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="900">
   <br><sub>Full screen on a 2560×1440 monitor: the window switches to this layout from 1100×820</sub>
 </p>
 
