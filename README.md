@@ -1,4 +1,4 @@
-<p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
+<p align="center"><a href="CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
 
 # NVIDIA Custom Resolution
 
@@ -7,8 +7,8 @@
 **English** | [Русский](RREADME.md)
 
 <p align="center">
-  <a href="../../releases/latest/download/CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="../../releases/latest/download/true_stratched_val.bat"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
+  <a href="CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
+  <a href="true_stratched_val.bat"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
 </p>
 <p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p>
 
@@ -147,47 +147,17 @@ The window has no system title bar: it is drawn by the program, in a flat, minim
 
 Normal window (940×760 and up): the screen and the presets on the left, the numbers and options on the right, the buttons in a row under both, the log at the bottom.
 
-```
-+----------------------------------------------------------------------+
-| (V) VALORANT Custom Resolution                       [_]  [ ]  [x]   |
-|     Primary display: ...                                  [EN | RU]  |
-|                                                                      |
-|  +---------------------------+      Width           Height           |
-|  |  preview of your screen:  |      [ 1566 ]   x    [ 1080 ]         |
-|  |  monitor, picture, circle |      Refresh rate, Hz                 |
-|  +---------------------------+      [ 144.000 ]                      |
-|  [orig][1566x1080][1440x993]...     The monitor keeps its native ...  |
-|  Only the primary display ...       [x] Stretch to the full screen    |
-|                                     [x] Disable the drivers of ...    |
-|                                         [ ] Enable the monitors ...   |
-|  [ Create and apply ] [ Restore monitors ] [ Close ]                 |
-|  +-- Log -------------------------------------------------------+    |
-|  |                                                               |    |
-|  +---------------------------------------------------------------+    |
-+----------------------------------------------------------------------+
-```
+<p align="center">
+  <img src="assets/screenshot-window.png" alt="The window of the program in its normal size" width="700">
+  <br><sub>The normal window (the interface is shown in English; in Russian the layout is the same)</sub>
+</p>
 
 Big window (1100×820 and up, for example full screen on a Full HD or 2K monitor): the options move up under the numbers, the buttons move into the right column under the options, and the preview gets all the extra space. The log stays at the bottom, as wide as the window.
 
-```
-+------------------------------------------------------------------------------------+
-| (V) VALORANT Custom Resolution                                      [_]  [ ]  [x]  |
-|                                                                          [EN | RU] |
-|  +--------------------------------+       Width           Height                   |
-|  |                                |       [ 1566 ]   x    [ 1080 ]                 |
-|  |   big preview of the screen    |       Refresh rate, Hz                         |
-|  |                                |       [ 144.000 ]                              |
-|  +--------------------------------+       The monitor keeps its native ...         |
-|  [orig][1566x1080][1440x993]...             [x] Stretch to the full screen         |
-|  Only the primary display ...               [x] Disable the drivers of ...         |
-|                                                 [ ] Enable the monitors ...        |
-|                                             [        Create and apply        ]     |
-|                                             [ Restore monitors ][    Close    ]    |
-|  +-- Log -----------------------------------------------------------------+       |
-|  |                                                                         |       |
-|  +-------------------------------------------------------------------------+       |
-+------------------------------------------------------------------------------------+
-```
+<p align="center">
+  <img src="assets/screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="900">
+  <br><sub>Full screen on a 2560×1440 monitor: the window switches to this layout from 1100×820</sub>
+</p>
 
 ### Window controls
 
