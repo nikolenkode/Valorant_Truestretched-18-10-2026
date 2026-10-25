@@ -1,14 +1,14 @@
 <p align="center"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></p>
 
-# NVIDIA Custom Resolution
+# VALORANT Custom Resolution
 
 > Растянутые разрешения для VALORANT (и любой другой игры) на видеокартах NVIDIA: без чёрных полос, с одним подтверждением, автоматическим откатом и с сохранёнными настройками яркости и цвета.
 
 [English](README.md) | **Русский**
 
 <p align="center">
-  <a href="../../releases/latest/download/CustomRes.exe"><img src="assets/btn-gui-ru.svg" alt="Скачать CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="../../releases/latest/download/true_stratched_val.bat"><img src="assets/btn-cli-ru.svg" alt="Скачать консольную версию, true_stratched_val.bat" width="320" height="64"></a>
+  <a href="../../releases/latest/download/CustomRes.exe"><img src="btn-gui-ru.svg" alt="Скачать CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
+  <a href="../../releases/latest/download/true_stratched_val.bat"><img src="btn-cli-ru.svg" alt="Скачать консольную версию, true_stratched_val.bat" width="320" height="64"></a>
 </p>
 <p align="center"><sub>Windows 10/11, 64-бит · видеокарта NVIDIA · <a href="../../releases">все релизы</a></sub></p>
 
@@ -32,7 +32,7 @@ Windows SmartScreen может показать *Windows защитила ваш
 
 ## Что это
 
-NVIDIA Custom Resolution создаёт кастомное разрешение в драйвере NVIDIA и растягивает его на весь экран. Он делает за один шаг то, что обычно требует прогулки по панели управления NVIDIA: создать разрешение, протестировать, выбрать правильный режим масштабирования, применить и закрепить.
+VALORANT Custom Resolution создаёт кастомное разрешение в драйвере NVIDIA и растягивает его на весь экран. Он делает за один шаг то, что обычно требует прогулки по панели управления NVIDIA: создать разрешение, протестировать, выбрать правильный режим масштабирования, применить и закрепить.
 
 Он сделан для игроков в VALORANT, которые играют на растянутом разрешении (например 1566×1080 на мониторе 2560×1440) и не хотят каждый раз кликать по одним и тем же окнам. Поэтому окно называется «VALORANT Custom Resolution». Ничего в нём не привязано к игре: любая игра, в которой можно выбрать разрешение, работает так же.
 
