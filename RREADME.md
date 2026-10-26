@@ -6,16 +6,25 @@
 
 [English](README.md) | **Русский**
 
-<p align="center">
-  <a href="releases/download/CustomRes.exe"><img src="btn-gui-ru.svg" alt="Скачать CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="releases/download/true_stratched_val.bat"><img src="btn-cli-ru.svg" alt="Скачать консольную версию, true_stratched_val.bat" width="320" height="64"></a>
+<p align="center"> 
+  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe">
+    <img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64">
+  </a>&nbsp;&nbsp; 
+
+  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/true_stratched_val.bat">
+    <img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.zip" width="320" height="64">
+  </a> 
 </p>
-<p align="center"><sub>Windows 10/11, 64-бит · видеокарта NVIDIA · <a href="../../releases">все релизы</a></sub></p>
 
 <p align="center">
-  <img src="screenshot-window.png" alt="Окно программы в обычном размере" width="39%">&nbsp;
-  <img src="screenshot-fullscreen.png" alt="Программа на весь экран на мониторе 2560x1440" width="57%">
-  <br><sub>Программа в обычном размере и на весь экран на мониторе 2560×1440 (интерфейс на английском)</sub>
+  <sub>Windows 10/11, 64-bit · NVIDIA GPU · 
+    <a href="../../releases">all releases</a>
+  </sub>
+</p> 
+<p align="center"> 
+  <img src="screenshot-window.png" alt="The window of the program in its normal size" width="39%">&nbsp; 
+  <img src="screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="57%"> 
+  <br><sub>The program in its normal size and in full screen on a 2560×1440 monitor</sub> 
 </p>
 
 **Содержание:** [Скачать](#скачать) · [Что это](#что-это) · [Растянутое разрешение в VALORANT](#растянутое-разрешение-в-valorant) · [Какую проблему он решает](#какую-проблему-он-решает) · [Быстрый старт с VALORANT](#быстрый-старт-с-valorant) · [То же вручную](#то-же-вручную-без-программы) · [Окно программы](#окно-программы) · [Как это работает](#как-это-работает) · [Ещё примеры из игры](#ещё-примеры-из-игры) · [Консольная версия](#консольная-версия) · [Файлы, сборка и устройство](#файлы-сборка-и-устройство) · [Требования](#требования) · [Если не получается](#если-не-получается) · [Вопросы и ответы](#вопросы-и-ответы) · [Статус и отказ от ответственности](#статус-и-отказ-от-ответственности)
