@@ -7,8 +7,8 @@
 **English** | [Русский](RREADME.md)
 
 <p align="center">
-  <a href="CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="true_stratched_val.bat"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
+  <a href="releases/CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
+  <a href="releases/true_stratched_val.bat"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
 </p>
 <p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p>
 
