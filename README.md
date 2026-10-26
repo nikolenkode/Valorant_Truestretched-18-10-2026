@@ -12,6 +12,12 @@
 </p>
 <p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p>
 
+<p align="center">
+  <img src="screenshot-window.png" alt="The window of the program in its normal size" width="39%">&nbsp;
+  <img src="screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="57%">
+  <br><sub>The program in its normal size and in full screen on a 2560×1440 monitor</sub>
+</p>
+
 **Contents:** [Download](#download) · [What it is](#what-it-is) · [Stretched resolution in VALORANT](#stretched-resolution-in-valorant) · [The problem it solves](#the-problem-it-solves) · [Quick start with VALORANT](#quick-start-with-valorant) · [The same by hand](#the-same-by-hand-without-the-program) · [The window](#the-window) · [How it works](#how-it-works) · [More examples from the game](#more-examples-from-the-game) · [Console version](#console-version) · [Files, build and internals](#files-build-and-internals) · [Requirements](#requirements) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Status and disclaimer](#status-and-disclaimer)
 
 ## Download
@@ -107,7 +113,7 @@ A first run, step by step, with a 2560×1440 monitor and the 1566×1080 preset.
 2. **Do this before you start the game.** A game that is already running does not expect the screen to change. Apply the resolution first, then start VALORANT (or close it, apply, and start it again).
 3. **Start `CustomRes.exe`** and accept the UAC prompt. The window opens in English; the **EN / RU** switch is in the top-right corner.
 4. **Pick the resolution.** Click the preset **1566×1080**, or type width, height and refresh rate yourself. Use the refresh rate of your monitor (for example 144, 165 or 240). Leave **Stretch to the full screen** on, and leave **Disable the drivers of all monitors…** on: it is the workaround that lets the driver accept a mode that your monitor does not list itself (see [Windows 11 and several displays](#windows-11-and-several-displays)).
-5. **Press Create and apply.** The screen goes dark for a moment, the log fills with steps `[1/5]` … `[5/5]`, and a dialog asks **Keep this resolution? Does the picture look right?**
+5. **Press Create and apply.** While the program works, a calm panel covers the content of the window: the name of the current step, a moving bar and the log, which grows line by line in the same colors as the log at the bottom. The screen itself goes dark or blinks a few times while the driver and Windows switch modes: that is normal and cannot be avoided. The log fills with steps `[1/5]` … `[5/5]`. Then the panel goes away and a dialog asks **Keep this resolution? Does the picture look right?**
 6. **Look at the desktop.** The taskbar and the icons should fill the whole screen, wider than before. That is the stretched picture. **Keep** (Enter) makes it permanent, **Revert** (Esc) goes back. If you do nothing for 15 seconds, it reverts by itself.
 7. **Set the game.** Start VALORANT, open **Settings > Video > General** and set:
    - **Display Mode:** Windowed Fullscreen
@@ -518,6 +524,8 @@ On the Windows side: `EnumDisplayDevices`, `EnumDisplaySettings`, `ChangeDisplay
 **What does turning Stretch off do?** The program creates a plain 1:1 mode with its own CVT-RB timing and applies it through Windows. The monitor then scales it and usually adds bars. It is meant for troubleshooting and for real 1:1 modes.
 
 **Is my desktop layout kept?** Yes. Only the primary display changes; the other monitors keep their resolution, refresh rate and position (see example D).
+
+**Why does the screen go dark or blink while it works?** Every time the driver or Windows switches the display mode, or the monitor devices are disabled or enabled, the monitor loses the signal for a moment and syncs again. That happens a few times in one run. The program cannot prevent it, but it makes sure nobody thinks it has hung: while it works, a panel over the window says what it is doing, keeps a bar moving and shows the log live. The panel belongs to the window only (it does not cover the desktop) and disappears when the run is over. The *Keep this resolution?* dialog is shown on top of the normal window.
 
 **Which language does the window open in?** English. Use the **EN / RU** switch.
 
