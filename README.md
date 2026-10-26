@@ -1,4 +1,4 @@
-<p align="center"><a href="CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
+<p align="center"><a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
 
 # VALORANT Custom Resolution
 

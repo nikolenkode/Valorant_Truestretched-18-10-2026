@@ -1,4 +1,4 @@
-<p align="center"><a href="CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
+<p align="center"><a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
 
 # VALORANT Custom Resolution
 
@@ -12,7 +12,7 @@
   </a>&nbsp;&nbsp; 
 
   <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/true_stratched_val.bat">
-    <img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.zip" width="320" height="64">
+    <img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64">
   </a> 
 </p>
 
