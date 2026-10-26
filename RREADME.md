@@ -7,8 +7,8 @@
 [English](README.md) | **Русский**
 
 <p align="center">
-  <a href="releases/CustomRes.exe"><img src="btn-gui-ru.svg" alt="Скачать CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
-  <a href="releases/true_stratched_val.bat"><img src="btn-cli-ru.svg" alt="Скачать консольную версию, true_stratched_val.bat" width="320" height="64"></a>
+  <a href="releases/download/CustomRes.exe"><img src="btn-gui-ru.svg" alt="Скачать CustomRes.exe" width="320" height="64"></a>&nbsp;&nbsp;
+  <a href="releases/download/true_stratched_val.bat"><img src="btn-cli-ru.svg" alt="Скачать консольную версию, true_stratched_val.bat" width="320" height="64"></a>
 </p>
 <p align="center"><sub>Windows 10/11, 64-бит · видеокарта NVIDIA · <a href="../../releases">все релизы</a></sub></p>
 
