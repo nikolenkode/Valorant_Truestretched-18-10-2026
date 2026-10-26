@@ -1,6 +1,6 @@
 <p align="center"><a href="CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
 
-# NVIDIA Custom Resolution
+# VALORANT Custom Resolution
 
 > Stretched resolutions for VALORANT (and any other game) on NVIDIA GPUs: no black bars, one confirmation, automatic rollback, and your brightness and color settings stay put.
 
@@ -32,7 +32,7 @@ Windows SmartScreen may say *Windows protected your PC* because the file is not 
 
 ## What it is
 
-NVIDIA Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
+VALORANT Custom Resolution creates a custom resolution in the NVIDIA driver and stretches it to the full screen. It does in one step what normally takes a walk through NVIDIA Control Panel: create the resolution, test it, pick the right scaling mode, apply it and make it permanent.
 
 It was made for VALORANT players who use a stretched resolution (for example 1566×1080 on a 2560×1440 monitor) and do not want to click through the same dialogs every time. That is why the window is called "VALORANT Custom Resolution". Nothing in it is specific to the game: any game that lets you choose a resolution works the same way.
 
