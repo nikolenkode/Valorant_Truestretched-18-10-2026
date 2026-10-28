@@ -716,6 +716,163 @@ namespace CustomRes
         }
     }
 
+    // A calm panel over the content of the window while the display is being switched: it says what the program is doing, keeps a bar
+    // moving (so that nobody thinks the program has hung when the screen blinks) and shows the log as it grows, in the same colors as the
+    // log at the bottom of the window. It is a part of the window (not a window of its own): it moves and resizes with it, never takes
+    // the focus, and is hidden as soon as the run is over.
+    public class BusyOverlay : Control
+    {
+        private string title = "";
+        private string step = "";
+        private int phase;
+        private readonly List<KeyValuePair<string, Color>> lines = new List<KeyValuePair<string, Color>>();
+        private readonly Timer tick = new Timer();
+
+        public BusyOverlay()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            BackColor = Theme.Bg;
+            Cursor = Cursors.AppStarting;
+            Visible = false;
+            tick.Interval = 40;
+            tick.Tick += delegate { phase++; Invalidate(BarRect()); };
+        }
+
+        public void SetTitle(string text) { title = text; Invalidate(); }
+        public void SetStep(string text) { step = text; Invalidate(); }
+
+        // a new run starts with an empty log
+        public void Clear() { lines.Clear(); Invalidate(); }
+
+        public void AddLine(string text, Color color)
+        {
+            lines.Add(new KeyValuePair<string, Color>(text.TrimEnd('\r', '\n'), color));
+            if (lines.Count > 500) lines.RemoveAt(0);
+            if (Visible) Invalidate(LogRect());
+        }
+
+        public void Present()
+        {
+            Visible = true;
+            BringToFront();
+            tick.Start();
+            Invalidate();
+        }
+
+        public void Dismiss()
+        {
+            tick.Stop();
+            Visible = false;
+        }
+
+        private Rectangle BarRect()
+        {
+            return new Rectangle(Width / 2 - 130, 126, 260, 4);
+        }
+
+        // the box with the log: from under the bar to the bottom of the panel, at most 1100 px wide
+        private Rectangle LogRect()
+        {
+            int w = Math.Min(1100, Width - 48);
+            int top = 196;
+            return new Rectangle((Width - w) / 2, top, w, Math.Max(0, Height - top - 24));
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            Gfx.Smooth(g);
+            Rectangle bar = BarRect();
+            if (bar.Contains(e.ClipRectangle))
+            {
+                // only the moving bar changes between two ticks
+                using (SolidBrush bg = new SolidBrush(Theme.Field)) { g.FillRectangle(bg, bar); }
+                DrawBar(g, bar);
+                return;
+            }
+            g.Clear(Theme.Bg);
+            Gfx.FillRound(g, Theme.Field, new RectangleF(0f, 0f, Width, Height), 16f);
+            float cx = Width / 2f;
+            float tw = Math.Min(760f, Width - 60f);
+            using (StringFormat sf = new StringFormat())
+            {
+                sf.Alignment = StringAlignment.Center; sf.LineAlignment = StringAlignment.Near;
+                using (Font f1 = Theme.Display(20f))
+                using (SolidBrush b1 = new SolidBrush(Color.White)) { g.DrawString(title, f1, b1, new RectangleF(cx - tw / 2f, 36f, tw, 38f), sf); }
+                using (Font f2 = Theme.Ui(10.5f))
+                using (SolidBrush b2 = new SolidBrush(Theme.Muted)) { g.DrawString(step, f2, b2, new RectangleF(cx - tw / 2f, 78f, tw, 42f), sf); }
+                using (Font f3 = Theme.Ui(9.5f))
+                using (SolidBrush b3 = new SolidBrush(Theme.Dim))
+                {
+                    g.DrawString(DarkForm.L("The screen may go dark or blink for a few seconds. This is normal: please wait and do not turn anything off.",
+                        "\u042D\u043A\u0440\u0430\u043D \u043C\u043E\u0436\u0435\u0442 \u043D\u0430 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0435\u043A\u0443\u043D\u0434 \u043F\u043E\u0433\u0430\u0441\u043D\u0443\u0442\u044C \u0438\u043B\u0438 \u043C\u043E\u0440\u0433\u043D\u0443\u0442\u044C. \u042D\u0442\u043E \u043D\u043E\u0440\u043C\u0430\u043B\u044C\u043D\u043E: \u043F\u043E\u0434\u043E\u0436\u0434\u0438\u0442\u0435 \u0438 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0432\u044B\u043A\u043B\u044E\u0447\u0430\u0439\u0442\u0435."),
+                        f3, b3, new RectangleF(cx - tw / 2f, 142f, tw, 40f), sf);
+                }
+            }
+            DrawBar(g, bar);
+            DrawLog(g);
+        }
+
+        // a small bar that keeps moving: the program is alive even when the picture is not
+        private void DrawBar(Graphics g, Rectangle bar)
+        {
+            Gfx.FillRound(g, Color.FromArgb(40, 40, 50), bar, 2f);
+            float seg = 90f;
+            float pos = (phase % 70) / 70f * (bar.Width + seg) - seg;
+            GraphicsState gs = g.Save();
+            g.SetClip(bar);
+            Gfx.FillRound(g, Theme.Red, new RectangleF(bar.X + pos, bar.Y, seg, bar.Height), 2f);
+            g.Restore(gs);
+        }
+
+        // like a terminal: the lines fill the box from the top, and once it is full the newest line stays at the bottom and the old ones scroll
+        // off the top; long lines wrap
+        private void DrawLog(Graphics g)
+        {
+            Rectangle box = LogRect();
+            if (box.Height < 60) return;
+            Gfx.FillRound(g, Color.FromArgb(14, 14, 18), box, 12f);
+            RectangleF inner = new RectangleF(box.X + 14f, box.Y + 10f, box.Width - 28f, box.Height - 20f);
+            GraphicsState gs = g.Save();
+            g.SetClip(inner);
+            using (Font mono = Theme.Mono(9.5f))
+            using (StringFormat sf = new StringFormat())
+            {
+                sf.Trimming = StringTrimming.None;
+                // heights of the newest lines, newest first, until the box is full
+                List<float> heights = new List<float>();
+                float total = 0f;
+                int first = lines.Count;                     // index of the oldest line that is measured
+                for (int i = lines.Count - 1; i >= 0; i--)
+                {
+                    float h = (lines[i].Key.Length == 0) ? 6f : g.MeasureString(lines[i].Key, mono, (int)inner.Width, sf).Height;
+                    heights.Add(h);
+                    total += h;
+                    first = i;
+                    if (total > inner.Height) break;
+                }
+                // everything fits: start at the top; otherwise the newest line sits at the bottom edge
+                float y = (total <= inner.Height) ? inner.Top : inner.Bottom - total;
+                for (int i = first; i < lines.Count; i++)
+                {
+                    float h = heights[lines.Count - 1 - i];
+                    if (lines[i].Key.Length > 0)
+                    {
+                        using (SolidBrush tb = new SolidBrush(lines[i].Value)) { g.DrawString(lines[i].Key, mono, tb, new RectangleF(inner.X, y, inner.Width, h), sf); }
+                    }
+                    y += h;
+                }
+            }
+            g.Restore(gs);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) tick.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     public enum WinKind { Minimize, Full, Close }
 
     // the buttons of the window (it has no system frame): minimise, full screen on / off, close
@@ -784,39 +941,142 @@ namespace CustomRes
         }
     }
 
-    // The picture inside the circle of the preview (agent.png). It is built into the .exe by build.bat; a file next to the .exe is the fallback.
-    // A silhouette saved with its "transparency" checkerboard baked in as ordinary pixels is made transparent here, and the picture
-    // is cropped to the figure, so that it fills the circle.
+    // One agent in the list: a picture built into the exe, or a file in the folder "agents" next to it.
+    public sealed class AgentInfo
+    {
+        public string Id;                  // the file name without ".png", for example "agent-jett"; "default" for agent.png
+        public string ResourceName;        // set when the picture is built into the exe
+        public string FilePath;            // set when it is a file next to the exe
+        public Bitmap Art;                 // the prepared picture (transparent, cropped), made on first use
+        public bool Tried;
+
+        public string Name
+        {
+            get
+            {
+                if (Id == "default") return DarkForm.L("Default", "Стандартный");
+                string s = Id;
+                if (s.StartsWith("agent-", StringComparison.OrdinalIgnoreCase) || s.StartsWith("agent_", StringComparison.OrdinalIgnoreCase)) s = s.Substring(6);
+                s = s.Replace('-', ' ').Replace('_', ' ').Trim();
+                if (s.Length == 0) return Id;
+                char[] c = s.ToCharArray();
+                bool up = true;
+                for (int i = 0; i < c.Length; i++)
+                {
+                    if (c[i] == ' ') up = true;
+                    else if (up) { c[i] = char.ToUpper(c[i], CultureInfo.InvariantCulture); up = false; }
+                }
+                return new string(c);
+            }
+        }
+    }
+
+    // The agents the preview can show. They are built into the .exe by build.bat (agent.png is the default one, every picture of the folder
+    // "agents" is another one), and any .png in a folder "agents" next to the .exe is added to the list when the program starts. The chosen
+    // one is remembered between runs. A silhouette saved with its "transparency" checkerboard baked in as ordinary pixels is made
+    // transparent here, and every picture is cropped to the figure, so that it fills the circle.
     public static class AgentArt
     {
-        private static Bitmap art;
-        private static bool tried;
+        private static List<AgentInfo> list;
+        private static AgentInfo current;
 
-        public static Bitmap Get()
+        private static string SettingsFile()
         {
-            if (tried) return art;
-            tried = true;
+            return Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CustomRes"), "agent.txt");
+        }
+
+        private static void Add(string id, string resource, string file)
+        {
+            foreach (AgentInfo a in list) { if (string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase)) return; }
+            AgentInfo n = new AgentInfo();
+            n.Id = id; n.ResourceName = resource; n.FilePath = file;
+            list.Add(n);
+        }
+
+        public static List<AgentInfo> All()
+        {
+            if (list != null) return list;
+            list = new List<AgentInfo>();
             try
             {
-                Bitmap raw = null;
                 System.Reflection.Assembly asm = System.Reflection.Assembly.GetExecutingAssembly();
+                const string prefix = "CustomRes.agents.";
                 foreach (string n in asm.GetManifestResourceNames())
                 {
-                    if (n.EndsWith("agent.png", StringComparison.OrdinalIgnoreCase))
-                    {
-                        using (Stream s = asm.GetManifestResourceStream(n))
-                        using (Bitmap b = new Bitmap(s)) { raw = new Bitmap(b); }
-                        break;
-                    }
+                    if (!n.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (string.Equals(n, "CustomRes.agent.png", StringComparison.OrdinalIgnoreCase)) Add("default", n, null);
+                    else if (n.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) Add(Path.GetFileNameWithoutExtension(n.Substring(prefix.Length)), n, null);
                 }
-                if (raw == null)
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                string folder = Path.Combine(dir, "agents");
+                if (Directory.Exists(folder))
                 {
-                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "agent.png");
-                    if (File.Exists(path)) { using (Bitmap b = new Bitmap(path)) { raw = new Bitmap(b); } }
+                    foreach (string f in Directory.GetFiles(folder, "*.png")) Add(Path.GetFileNameWithoutExtension(f), null, f);
                 }
-                if (raw != null) { art = Prepare(raw); raw.Dispose(); }
+                string single = Path.Combine(dir, "agent.png");
+                if (File.Exists(single)) Add("default", null, single);
             }
-            catch (Exception) { art = null; }
+            catch (Exception) { }
+            list.Sort(delegate(AgentInfo a, AgentInfo b)
+            {
+                if (a.Id == "default") return (b.Id == "default") ? 0 : -1;
+                if (b.Id == "default") return 1;
+                return string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase);
+            });
+            string saved = null;
+            try { string sf = SettingsFile(); if (File.Exists(sf)) saved = File.ReadAllText(sf).Trim(); } catch (Exception) { }
+            foreach (AgentInfo a in list) { if (saved != null && string.Equals(a.Id, saved, StringComparison.OrdinalIgnoreCase)) current = a; }
+            if (current == null && list.Count > 0) current = list[0];
+            return list;
+        }
+
+        public static AgentInfo Current { get { All(); return current; } }
+
+        public static void Select(AgentInfo a)
+        {
+            current = a;
+            try
+            {
+                string sf = SettingsFile();
+                Directory.CreateDirectory(Path.GetDirectoryName(sf));
+                File.WriteAllText(sf, a.Id);
+            }
+            catch (Exception) { }
+        }
+
+        // the picture of the chosen agent (null when there is none)
+        public static Bitmap Get()
+        {
+            AgentInfo a = Current;
+            return (a == null) ? null : Get(a);
+        }
+
+        public static Bitmap Get(AgentInfo a)
+        {
+            if (!a.Tried)
+            {
+                a.Tried = true;
+                try { a.Art = Load(a); } catch (Exception) { a.Art = null; }
+            }
+            return a.Art;
+        }
+
+        private static Bitmap Load(AgentInfo a)
+        {
+            Bitmap raw = null;
+            if (a.ResourceName != null)
+            {
+                System.Reflection.Assembly asm = System.Reflection.Assembly.GetExecutingAssembly();
+                using (Stream s = asm.GetManifestResourceStream(a.ResourceName))
+                using (Bitmap b = new Bitmap(s)) { raw = new Bitmap(b); }
+            }
+            else if (a.FilePath != null)
+            {
+                using (Bitmap b = new Bitmap(a.FilePath)) { raw = new Bitmap(b); }
+            }
+            if (raw == null) return null;
+            Bitmap art = Prepare(raw);
+            raw.Dispose();
             return art;
         }
 
@@ -890,7 +1150,188 @@ namespace CustomRes
         }
     }
 
+    // The list of agents: click the figure in the preview and pick another one. A panel over the content of the window, like the one that is
+    // shown while the program works; Esc, the cross or a pick closes it, the wheel scrolls when there are more agents than fit.
+    public class AgentPicker : Control
+    {
+        private const int TileW = 104, TileH = 124, Gap = 10, Pad = 24, GridTop = 76;
+        private List<AgentInfo> items = new List<AgentInfo>();
+        private int scroll;
+        private int hover = -1;
+        private bool hoverClose;
+        public event EventHandler Picked;
 
+        public AgentPicker()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
+            BackColor = Theme.Bg;
+            Visible = false;
+        }
+
+        public void Open()
+        {
+            items = AgentArt.All();
+            scroll = 0; hover = -1; hoverClose = false;
+            Visible = true;
+            BringToFront();
+            Focus();
+            Invalidate();
+        }
+
+        public void CloseView() { Visible = false; }
+
+        private int Cols() { return Math.Max(1, (Width - 2 * Pad + Gap) / (TileW + Gap)); }
+
+        private Rectangle Tile(int i)
+        {
+            int cols = Cols();
+            int gridW = cols * (TileW + Gap) - Gap;
+            int x0 = (Width - gridW) / 2;
+            return new Rectangle(x0 + (i % cols) * (TileW + Gap), GridTop + (i / cols) * (TileH + Gap) - scroll, TileW, TileH);
+        }
+
+        private int MaxScroll()
+        {
+            int rows = (items.Count + Cols() - 1) / Cols();
+            int content = rows * (TileH + Gap) - Gap;
+            return Math.Max(0, content - (Height - GridTop - Pad));
+        }
+
+        private Rectangle CloseRect() { return new Rectangle(Width - Pad - 30, 18, 30, 30); }
+
+        private int HitTile(Point p)
+        {
+            if (p.Y < GridTop - 4 || p.Y > Height - 10) return -1;
+            for (int i = 0; i < items.Count; i++) { if (Tile(i).Contains(p)) return i; }
+            return -1;
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { if (!Focused) Focus(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = -1; hoverClose = false; Invalidate(); base.OnMouseLeave(e); }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            int h = HitTile(e.Location);
+            bool hc = CloseRect().Contains(e.Location);
+            if (h != hover || hc != hoverClose)
+            {
+                hover = h; hoverClose = hc;
+                Cursor = (h >= 0 || hc) ? Cursors.Hand : Cursors.Default;
+                Invalidate();
+            }
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            int ns = Math.Max(0, Math.Min(MaxScroll(), scroll - Math.Sign(e.Delta) * 70));
+            if (ns != scroll) { scroll = ns; Invalidate(); }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (CloseRect().Contains(e.Location)) { CloseView(); return; }
+            int h = HitTile(e.Location);
+            if (h >= 0)
+            {
+                AgentArt.Select(items[h]);
+                if (Picked != null) Picked(this, EventArgs.Empty);
+                CloseView();
+                return;
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape) { CloseView(); e.Handled = true; }
+            base.OnKeyDown(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            Gfx.Smooth(g);
+            g.Clear(Theme.Bg);
+            Gfx.FillRound(g, Theme.Field, new RectangleF(0f, 0f, Width, Height), 16f);
+            using (Font ft = Theme.Display(16f))
+            using (SolidBrush tb = new SolidBrush(Color.White)) { g.DrawString(DarkForm.L("Choose your agent", "Выберите агента"), ft, tb, Pad, 20f); }
+            using (Font fs = Theme.Ui(9f))
+            using (SolidBrush sb = new SolidBrush(Theme.Dim)) { g.DrawString(DarkForm.L("This only changes the picture in the preview.", "Это меняет только картинку в превью."), fs, sb, Pad, 48f); }
+
+            Rectangle cr = CloseRect();
+            if (hoverClose) Gfx.FillRound(g, Color.FromArgb(40, 40, 50), cr, 8f);
+            using (Pen p = Gfx.RoundPen(hoverClose ? Color.White : Theme.Muted, 1.6f))
+            {
+                float cx = cr.X + cr.Width / 2f, cy = cr.Y + cr.Height / 2f;
+                g.DrawLine(p, cx - 5f, cy - 5f, cx + 5f, cy + 5f);
+                g.DrawLine(p, cx + 5f, cy - 5f, cx - 5f, cy + 5f);
+            }
+
+            GraphicsState gs = g.Save();
+            g.SetClip(new Rectangle(0, GridTop - 6, Width, Math.Max(0, Height - GridTop + 6 - 10)));
+            AgentInfo cur = AgentArt.Current;
+            for (int i = 0; i < items.Count; i++)
+            {
+                Rectangle t = Tile(i);
+                if (t.Bottom < GridTop - 6 || t.Top > Height) continue;
+                DrawTile(g, items[i], t, items[i] == cur, i == hover);
+            }
+            g.Restore(gs);
+
+            // only the default agent: say how to get more
+            if (items.Count <= 1)
+            {
+                using (Font fh = Theme.Ui(9.5f))
+                using (SolidBrush hb = new SolidBrush(Theme.Muted))
+                {
+                    g.DrawString(DarkForm.L(
+                        "There are no other agents yet. Put silhouettes (black .png pictures on a transparent background, for example made with make_silhouette.py) into the folder \"agents\" next to the program and start it again. build.bat builds the pictures of that folder into the .exe.",
+                        "Других агентов пока нет. Положите силуэты (чёрные .png на прозрачном фоне, например сделанные скриптом make_silhouette.py) в папку «agents» рядом с программой и запустите её снова. Если собрать exe через build.bat, картинки из этой папки будут встроены в него."),
+                        fh, hb, new RectangleF(Pad, GridTop + TileH + 26f, Width - 2f * Pad, 90f));
+                }
+            }
+
+            int ms = MaxScroll();
+            if (ms > 0)
+            {
+                float trackH = Height - GridTop - Pad;
+                float thumbH = Math.Max(30f, trackH * trackH / (trackH + ms));
+                float ty = GridTop + (trackH - thumbH) * scroll / ms;
+                Gfx.FillRound(g, Color.FromArgb(60, 60, 72), new RectangleF(Width - 10f, ty, 4f, thumbH), 2f);
+            }
+        }
+
+        private void DrawTile(Graphics g, AgentInfo a, Rectangle t, bool selected, bool hot)
+        {
+            RectangleF r = new RectangleF(t.X + 0.75f, t.Y + 0.75f, t.Width - 1.5f, t.Height - 1.5f);
+            Color fill = selected ? Gfx.Mix(Theme.Field, Theme.Red, 0.16f) : (hot ? Color.FromArgb(38, 38, 47) : Color.FromArgb(28, 28, 34));
+            Gfx.FillRound(g, fill, r, 12f);
+            if (selected) Gfx.StrokeRound(g, Theme.Red, 1.5f, r, 12f);
+            float rad = 36f, cx = t.X + t.Width / 2f, cy = t.Y + 12f + rad;
+            using (SolidBrush db = new SolidBrush(Theme.Red)) { g.FillEllipse(db, cx - rad, cy - rad, 2f * rad, 2f * rad); }
+            Bitmap art = AgentArt.Get(a);
+            if (art != null)
+            {
+                float hh = rad * 1.8f, ww = hh * art.Width / art.Height;
+                PointF[] dst = new PointF[] { new PointF(cx - ww / 2f, cy - hh / 2f), new PointF(cx + ww / 2f, cy - hh / 2f), new PointF(cx - ww / 2f, cy + hh / 2f) };
+                GraphicsState gi = g.Save();
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                using (ImageAttributes ia = new ImageAttributes())
+                {
+                    ia.SetWrapMode(WrapMode.TileFlipXY);
+                    g.DrawImage(art, dst, new RectangleF(0f, 0f, art.Width, art.Height), GraphicsUnit.Pixel, ia);
+                }
+                g.Restore(gi);
+            }
+            using (Font f = Theme.Ui(9f))
+            using (StringFormat sf = Gfx.Centered())
+            using (SolidBrush tb = new SolidBrush(selected ? Color.White : (hot ? Theme.Text : Theme.Muted)))
+            {
+                g.DrawString(a.Name, f, tb, new RectangleF(t.X + 4f, t.Y + 12f + 2f * rad + 4f, t.Width - 8f, 26f), sf);
+            }
+        }
+    }
 
     // The screen you are shaping. The dark frame is the monitor, the red outline is the picture the game renders, and the test pattern
     // (grid of squares, circle with the agent in it, grey ramp) stretches with it: with "stretch" on the circle turns into an ellipse and
@@ -902,7 +1343,42 @@ namespace CustomRes
         private bool stretch = true;
         private float t = 1f;                 // 0 = the picture as it is, in the middle; 1 = stretched over the whole screen
 
+        public const int Pad = 8;             // the card is the monitor: only this much of it is left around the screen
+        private RectangleF discHit;           // where the circle with the agent was drawn last
+        private bool hoverAgent;
+        public event EventHandler AgentClicked;
+
         public ScreenPreview() { BackColor = Theme.Bg; }
+
+        // the proportions of the monitor: the window makes this card exactly that shape, so that the screen fills it
+        public float Aspect { get { return (nativeH > 0) ? (float)nativeW / nativeH : 16f / 9f; } }
+
+        private bool OverDisc(Point p)
+        {
+            if (discHit.Width < 4f || discHit.Height < 4f) return false;
+            float rx = discHit.Width / 2f, ry = discHit.Height / 2f;
+            float dx = (p.X - (discHit.X + rx)) / rx, dy = (p.Y - (discHit.Y + ry)) / ry;
+            return dx * dx + dy * dy <= 1f;
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            bool over = OverDisc(e.Location);
+            if (over != hoverAgent) { hoverAgent = over; Cursor = over ? Cursors.Hand : Cursors.Default; Invalidate(); }
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            if (hoverAgent) { hoverAgent = false; Cursor = Cursors.Default; Invalidate(); }
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && OverDisc(e.Location) && AgentClicked != null) AgentClicked(this, EventArgs.Empty);
+            base.OnMouseClick(e);
+        }
 
         public void SetState(int nw, int nh, int sw, int sh, bool stretched)
         {
@@ -936,9 +1412,8 @@ namespace CustomRes
             Gfx.FillRound(g, Theme.Field, new RectangleF(0f, 0f, Width, Height), 16f);
 
             // the monitor itself
-            const float cr = 5f;
-            float padX = 28f, padTop = 24f, below = 56f;
-            RectangleF area = new RectangleF(padX, padTop, Width - 2 * padX, Height - padTop - below);
+            const float cr = 8f;
+            RectangleF area = new RectangleF(Pad, Pad, Width - 2f * Pad, Height - 2f * Pad);
             float aspect = (float)nativeW / nativeH;
             float fw = area.Width, fh = fw / aspect;
             if (fh > area.Height) { fh = area.Height; fw = fh * aspect; }
@@ -971,6 +1446,7 @@ namespace CustomRes
             // the circle: a flat red disc, so that the black figure stands out against it
             float rr = srcH * 0.36f;
             RectangleF disc = new RectangleF(cx - rr * ux, cy - rr * uy, 2f * rr * ux, 2f * rr * uy);
+            discHit = disc;
             using (SolidBrush db = new SolidBrush(Theme.Red)) { g.FillEllipse(db, disc); }
 
             // the agent: its height is a fixed share of the circle, its width follows its own proportions, and then it is scaled by the
@@ -1001,71 +1477,78 @@ namespace CustomRes
                 int v = 50 + i * 30;
                 using (SolidBrush bb = new SolidBrush(Color.FromArgb(150, v, v, v))) { g.FillRectangle(bb, rampX + i * rampW, rampY, rampW + 0.6f, rampH); }
             }
+            // the circle can be clicked: a ring and a small label say so
+            if (hoverAgent)
+            {
+                using (Pen hp = new Pen(Color.FromArgb(150, 255, 255, 255), 2f)) { g.DrawEllipse(hp, disc); }
+                if (disc.Height > 110f)
+                {
+                    string label = DarkForm.L("Change agent", "Сменить агента");
+                    using (Font lf = Theme.UiBold(9f))
+                    {
+                        SizeF ls = g.MeasureString(label, lf);
+                        RectangleF pill = new RectangleF(cx - (ls.Width + 18f) / 2f, disc.Bottom - ls.Height - 22f, ls.Width + 18f, ls.Height + 6f);
+                        Gfx.FillRound(g, Color.FromArgb(190, 0, 0, 0), pill, pill.Height / 2f);
+                        using (StringFormat psf = Gfx.Centered())
+                        using (SolidBrush wb = new SolidBrush(Color.White)) { g.DrawString(label, lf, wb, pill, psf); }
+                    }
+                }
+            }
             g.Restore(gs2);
 
             // the outline of the picture
             Gfx.StrokeRound(g, Color.FromArgb(215, Theme.Red), 1.5f, src, cr);
 
-            // the size of the picture, as a small pill in a corner of it: bottom left, or top left when the circle is in the way
-            if (src.Width > 150f && src.Height > 64f)
+            // Two small pills sit on the screen. In the bottom left corner of the monitor, on two lines: what the monitor is and what happens to
+            // the picture (they used to stand under the frame). The size of the picture is in a corner of the picture: top left, or bottom
+            // right when the circle, the grey steps or the first pill are in the way.
+            bool bars = t <= 0.5f;
+            string nat = nativeKnown ? Strings.T("gui_pv_native", nativeW, nativeH) : "";
+            string state = bars ? Strings.T("gui_pv_bars") : Strings.T("gui_pv_stretch", (double)nativeW / srcW, (double)nativeH / srcH);
+            using (Font pf = Theme.UiBold(9f))
             {
-                string size = srcW + "\u00D7" + srcH;
-                using (Font tf = Theme.UiBold(9f))
+                float lh = g.MeasureString(state, pf).Height;
+                int lines = (nat.Length > 0) ? 2 : 1;
+                float iw = Math.Max((nat.Length > 0) ? g.MeasureString(nat, pf).Width : 0f, g.MeasureString(state, pf).Width) + 20f;
+                float ih = lines * lh + 8f;
+                RectangleF info = new RectangleF(frame.Left + 10f, frame.Bottom - 10f - ih, Math.Min(iw, frame.Width - 20f), ih);
+                Gfx.FillRound(g, Color.FromArgb(175, 0, 0, 0), info, 11f);
+                using (SolidBrush nb = new SolidBrush(Theme.Muted))
+                using (SolidBrush sb = new SolidBrush(bars ? Theme.Warn : Theme.Ok))
                 {
-                    SizeF sz = g.MeasureString(size, tf);
-                    float tw = sz.Width + 14f, th = sz.Height + 4f;
-                    RectangleF tag = new RectangleF(src.Left + 10f, src.Bottom - th - 10f, tw, th);
-                    float rx = rr * 1.12f * ux, ry = rr * 1.12f * uy;
-                    float qx = (tag.Right - cx) / rx, qy = (tag.Top - cy) / ry;            // the corner of the pill that is nearest to the circle
-                    bool hits = (qx * qx + qy * qy) < 1f;
-                    if (hits)
-                    {
-                        tag = new RectangleF(src.Left + 10f, src.Top + 10f, tw, th);
-                        qx = (tag.Right - cx) / rx; qy = (tag.Bottom - cy) / ry;
-                        hits = ((qx * qx + qy * qy) < 1f) || (tag.Right > rampX - 4f && tag.Bottom > rampY - 2f);
-                    }
-                    if (!hits)
-                    {
-                        Gfx.FillRound(g, Color.FromArgb(170, 0, 0, 0), tag, th / 2f);
-                        using (StringFormat sf = Gfx.Centered())
-                        using (SolidBrush wb = new SolidBrush(Color.White)) { g.DrawString(size, tf, wb, tag, sf); }
-                    }
+                    if (nat.Length > 0) g.DrawString(nat, pf, nb, info.X + 9f, info.Y + 4f);
+                    g.DrawString(state, pf, sb, info.X + 9f, info.Y + 4f + (lines - 1) * lh);
                 }
-            }
 
-            // under the frame: the monitor's size, and what happens to the picture. Both strings are measured: side by side when they fit
-            // (the Russian ones are much longer than the English ones), one above the other when they do not
-            using (Font ff = Theme.Ui(9f))
-            using (StringFormat lf = new StringFormat())
-            {
-                lf.FormatFlags = StringFormatFlags.NoWrap; lf.Trimming = StringTrimming.EllipsisCharacter;
-                bool bars = t <= 0.5f;
-                string nat = nativeKnown ? Strings.T("gui_pv_native", nativeW, nativeH) : "";
-                string state = bars ? Strings.T("gui_pv_bars") : Strings.T("gui_pv_stretch", (double)nativeW / srcW, (double)nativeH / srcH);
-                float wNat = (nat.Length > 0) ? g.MeasureString(nat, ff, 10000, lf).Width : 0f;
-                float wState = g.MeasureString(state, ff, 10000, lf).Width;
-                float x0 = frame.Left, x1 = frame.Right;
-                if (wNat + wState + 16f > x1 - x0) { x0 = 24f; x1 = Width - 24f; }       // the frame is too narrow: use the width of the panel
-                bool oneRow = (wNat + wState + 16f <= x1 - x0);
-                using (SolidBrush fb = new SolidBrush(Theme.Muted))
-                using (SolidBrush sb2 = new SolidBrush(bars ? Theme.Warn : Theme.Ok))
-                using (StringFormat rf = new StringFormat())
+                if (src.Width > 150f && src.Height > 64f)
                 {
-                    rf.FormatFlags = StringFormatFlags.NoWrap; rf.Trimming = StringTrimming.EllipsisCharacter; rf.Alignment = StringAlignment.Far;
-                    if (oneRow)
+                    string size = srcW + "\u00D7" + srcH;
+                    SizeF sz = g.MeasureString(size, pf);
+                    float tw = sz.Width + 14f, th = sz.Height + 4f;
+                    RectangleF ramp = RectangleF.Inflate(new RectangleF(rampX, rampY, rampW * steps, rampH), 4f, 4f);
+                    RectangleF[] spots = new RectangleF[]
                     {
-                        float fy = frame.Bottom + 16f;
-                        if (nat.Length > 0) g.DrawString(nat, ff, fb, new RectangleF(x0, fy, wNat + 4f, 18f), lf);
-                        g.DrawString(state, ff, sb2, new RectangleF(x0 + wNat + 8f, fy, x1 - x0 - wNat - 8f, 18f), rf);
-                    }
-                    else
+                        new RectangleF(src.Left + 10f, src.Top + 10f, tw, th),
+                        new RectangleF(src.Right - 10f - tw, src.Bottom - 10f - th, tw, th)
+                    };
+                    foreach (RectangleF spot in spots)
                     {
-                        float fy = frame.Bottom + 8f;
-                        if (nat.Length > 0) g.DrawString(nat, ff, fb, new RectangleF(x0, fy, x1 - x0, 18f), lf);
-                        g.DrawString(state, ff, sb2, new RectangleF(x0, fy + (nat.Length > 0 ? 17f : 0f), x1 - x0, 18f), lf);
+                        if (HitsCircle(spot, cx, cy, rr * 1.12f * ux, rr * 1.12f * uy) || spot.IntersectsWith(ramp) || spot.IntersectsWith(RectangleF.Inflate(info, 6f, 4f))) continue;
+                        Gfx.FillRound(g, Color.FromArgb(170, 0, 0, 0), spot, th / 2f);
+                        using (StringFormat sf = Gfx.Centered())
+                        using (SolidBrush wb = new SolidBrush(Color.White)) { g.DrawString(size, pf, wb, spot, sf); }
+                        break;
                     }
                 }
             }
+        }
+
+        // does the rectangle touch the ellipse (centre, radii)?
+        private static bool HitsCircle(RectangleF r, float cx, float cy, float rx, float ry)
+        {
+            float px = Math.Max(r.Left, Math.Min(cx, r.Right)), py = Math.Max(r.Top, Math.Min(cy, r.Bottom));
+            float dx = (px - cx) / rx, dy = (py - cy) / ry;
+            return dx * dx + dy * dy < 1f;
         }
     }
 
@@ -1246,6 +1729,10 @@ namespace CustomRes
         private readonly RedButton btnClose = new RedButton();
         private readonly WinButton btnMin = new WinButton(WinKind.Minimize), btnFull = new WinButton(WinKind.Full), btnX = new WinButton(WinKind.Close);
         private bool fullScreen;
+        private bool wideLayout;
+        private float layoutAspect = 16f / 9f;       // the proportions of the monitor that the layout was made for
+        private readonly BusyOverlay busyView = new BusyOverlay();
+        private readonly AgentPicker picker = new AgentPicker();
         private Rectangle prevBounds;
         private readonly RichTextBox log = new RichTextBox();
         private readonly ToolTip tips = new ToolTip();
@@ -1351,6 +1838,8 @@ namespace CustomRes
             btnFull.Click += delegate { ToggleFullScreen(); };
             btnMin.Click += delegate { WindowState = FormWindowState.Minimized; };
             btnX.Click += delegate { Close(); };
+            preview.AgentClicked += delegate { if (!busy) picker.Open(); };
+            picker.Picked += delegate { preview.Invalidate(); };
 
             // ---- log ----
             cardLog.SetBounds(32, 580, 876, 148);
@@ -1361,7 +1850,7 @@ namespace CustomRes
             log.HandleCreated += delegate { Native.DarkScrollBars(log.Handle); };
             cardLog.Controls.Add(log);
 
-            Controls.Add(logo); Controls.Add(lblTitle); Controls.Add(lblDisplay); Controls.Add(btnMin); Controls.Add(btnFull); Controls.Add(btnX); Controls.Add(segLang);
+            Controls.Add(logo); Controls.Add(lblTitle); Controls.Add(lblDisplay); Controls.Add(btnMin); Controls.Add(btnFull); Controls.Add(btnX); Controls.Add(segLang); Controls.Add(busyView); Controls.Add(picker);
             Controls.Add(preview); Controls.Add(pnlControls); Controls.Add(lblHint);
             Controls.Add(btnApply); Controls.Add(btnRestore); Controls.Add(btnClose);
             Controls.Add(cardLog);
@@ -1439,20 +1928,40 @@ namespace CustomRes
             }
         }
 
-        // Lays everything out for the current size of the window. The content fills the whole width (no empty bands at the sides): the left
-        // column (preview, presets) takes the extra width, the right column grows a little; the preview and the log share the extra height (8 : 2);
-        // the options stay level with the bottom of the presets.
+        // Lays everything out for the current size of the window. The content fills the whole width (no empty bands at the sides).
+        // Normal window: the screen and the presets at the left, the numbers and the options at the right, the buttons in a row under both,
+        // the log at the bottom. Big window (full screen on a Full HD or 2K monitor): the buttons move into the right column, under the
+        // options, and the options come up under the numbers; the log stays at the bottom, as wide as the window.
+        // The card with the screen is exactly the shape of the monitor, so that the screen fills it (the picture inside must keep the
+        // proportions of the real monitor, otherwise a circle would not be a circle). Biggest card that fits maxW x maxH.
+        private void CardSize(int maxW, int maxH, out int w, out int h)
+        {
+            float aspect = preview.Aspect;
+            int pad = ScreenPreview.Pad;
+            h = maxH;
+            w = (int)Math.Round((h - 2 * pad) * aspect) + 2 * pad;
+            if (w > maxW)
+            {
+                w = maxW;
+                h = (int)Math.Round((w - 2 * pad) / aspect) + 2 * pad;
+            }
+        }
+
         private void LayoutAll()
         {
             int W = ClientSize.Width, H = ClientSize.Height;
             if (W < 400 || H < 400) return;                                   // minimised
             int x0 = 32;
             int CW = W - 2 * x0;
-            int extra = Math.Max(0, H - 760);
-            int RW = Math.Max(332, Math.Min(560, (int)(CW * 0.30)));          // the right column
-            int LW = CW - RW - 36;                                            // the left column
-            int previewH = 288 + (int)(extra * 0.8);
             int px = 8;                                                       // the panel with the presets and numbers stays off the edge, which resizes the window
+            layoutAspect = preview.Aspect;
+            bool wide = (W >= 1100 && H >= 820);
+            if (wide != wideLayout)
+            {
+                wideLayout = wide;
+                if (wide) { btnApply.BringToFront(); btnRestore.BringToFront(); btnClose.BringToFront(); }   // they sit over the panel now
+            }
+            lblHint.AutoEllipsis = true;
 
             // header: the window buttons above the language switch, both against the right margin
             int right = x0 + CW;
@@ -1464,43 +1973,98 @@ namespace CustomRes
             btnMin.SetBounds(right - 116, 10, 36, 28);
             segLang.SetBounds(right - 88, 46, 88, 30);
 
-            // left: the screen and the presets under it
-            preview.SetBounds(x0, 96, LW, previewH);
-            int panelH = previewH + 12 + 64;
-            int tt = Math.Max(248, panelH - 124);                             // the three options end level with the presets
-            pnlControls.SetBounds(px, 96, W - 2 * px, Math.Max(panelH, tt + 130));
+            busyView.SetBounds(px, HeaderH, W - 2 * px, H - HeaderH - px);
+            if (busyView.Visible) busyView.BringToFront();
+            picker.SetBounds(px, HeaderH, W - 2 * px, H - HeaderH - px);
+            if (picker.Visible) picker.BringToFront();
+
             int n = Math.Max(1, chips.Count);
-            int chipW = (LW - (n - 1) * 5) / n;
-            for (int i = 0; i < chips.Count; i++) chips[i].SetBounds(x0 - px + i * (chipW + 5), previewH + 12, chipW, 64);
 
-            // right: the numbers, the info and the options (inside the panel, whose top is at y = 96)
-            int rx = x0 + LW + 36 - px;
-            int half = (RW - 32) / 2;
-            lblW.SetBounds(rx, 0, half, 18);
-            numW.SetBounds(rx, 22, half, 52);
-            lblX.SetBounds(rx + half, 22, 32, 52);
-            lblH.SetBounds(rx + half + 32, 0, half, 18);
-            numH.SetBounds(rx + half + 32, 22, half, 52);
-            lblHz.SetBounds(rx, 90, RW, 18);
-            numHz.SetBounds(rx, 112, half, 52);
-            lblInfo.SetBounds(rx, 178, RW, 60);
-            chkStretch.SetBounds(rx, tt, RW, 28);
-            chkDisable.SetBounds(rx, tt + 34, RW, 46);
-            chkReenable.SetBounds(rx + 28, tt + 84, RW - 28, 44);
+            if (!wide)
+            {
+                int extra = Math.Max(0, H - 760);
+                int budgetH = 288 + (int)(extra * 0.8);                       // the preview and the log share the extra height (8 : 2)
+                int cw, previewH;
+                CardSize(CW - 36 - 332, budgetH, out cw, out previewH);       // the card is as big as the room allows, in the shape of the monitor
+                int minCol = n * 68 + (n - 1) * 5;                            // the row of presets needs at least this much room
+                int LW = Math.Max(cw, minCol), RW = CW - LW - 36, half = (RW - 32) / 2;   // the right column gets what is left (at least 332)
+                int chipW = (LW - (n - 1) * 5) / n;
+                preview.SetBounds(x0 + (LW - cw) / 2, 96, cw, previewH);      // a narrow card (4:3, 5:4) stands in the middle of its column
+                int panelH = Math.Max(previewH + 12 + 64, 364);               // a low card (21:9) must not pull the buttons up into the options
+                int tt = Math.Max(248, panelH - 124);                         // the three options end level with the presets
+                pnlControls.SetBounds(px, 96, W - 2 * px, Math.Max(panelH, tt + 130));
+                for (int i = 0; i < chips.Count; i++) chips[i].SetBounds(x0 - px + i * (chipW + 5), previewH + 12, chipW, 64);
 
-            // hint, buttons, log
-            int hintY = 96 + panelH + 22;
-            int btnY = hintY + 30;
-            lblHint.SetBounds(x0, hintY, CW, 22);
-            int applyW = (int)(CW * 0.4338), restoreW = (int)(CW * 0.3653);
-            int closeW = CW - applyW - restoreW - 24;
-            btnApply.SetBounds(x0, btnY, applyW, 48);
-            btnRestore.SetBounds(x0 + applyW + 12, btnY, restoreW, 48);
-            btnClose.SetBounds(x0 + applyW + restoreW + 24, btnY, closeW, 48);
-            int logY = btnY + 68;
-            int logH = Math.Max(100, H - 32 - logY);
-            cardLog.SetBounds(x0, logY, CW, logH);
-            log.SetBounds(16, 40, CW - 32, Math.Max(40, logH - 54));
+                int rx = x0 + LW + 36 - px;
+                lblW.SetBounds(rx, 0, half, 18);
+                numW.SetBounds(rx, 22, half, 52);
+                lblX.SetBounds(rx + half, 22, 32, 52);
+                lblH.SetBounds(rx + half + 32, 0, half, 18);
+                numH.SetBounds(rx + half + 32, 22, half, 52);
+                lblHz.SetBounds(rx, 90, RW, 18);
+                numHz.SetBounds(rx, 112, half, 52);
+                lblInfo.SetBounds(rx, 178, RW, 60);
+                chkStretch.SetBounds(rx, tt, RW, 28);
+                chkDisable.SetBounds(rx, tt + 34, RW, 46);
+                chkReenable.SetBounds(rx + 28, tt + 84, RW - 28, 44);
+
+                int hintY = 96 + panelH + 22;
+                int btnY = hintY + 30;
+                lblHint.SetBounds(x0, hintY, CW, 22);
+                int applyW = (int)(CW * 0.4338), restoreW = (int)(CW * 0.3653);
+                int closeW = CW - applyW - restoreW - 24;
+                btnApply.SetBounds(x0, btnY, applyW, 48);
+                btnRestore.SetBounds(x0 + applyW + 12, btnY, restoreW, 48);
+                btnClose.SetBounds(x0 + applyW + restoreW + 24, btnY, closeW, 48);
+                int logY = btnY + 68;
+                int logH = Math.Max(100, H - 32 - logY);
+                cardLog.SetBounds(x0, logY, CW, logH);
+                log.SetBounds(16, 40, CW - 32, Math.Max(40, logH - 54));
+            }
+            else
+            {
+                int logTarget = Math.Max(150, (int)(H * 0.24));
+                int budgetH = Math.Max(514, H - 172 - logTarget) - 76;        // the room for the card
+                int cw, previewH;
+                CardSize(CW - 36 - 400, budgetH, out cw, out previewH);       // the card is as big as the room allows, in the shape of the monitor
+                int panelH = Math.Max(514, previewH + 76);                    // the screen, the presets and the right column end here
+                int minCol = n * 68 + (n - 1) * 5;
+                int LW = Math.Max(cw, minCol), RW = CW - LW - 36, half = (RW - 32) / 2;   // the right column gets what is left (at least 400)
+                int chipW = (LW - (n - 1) * 5) / n;
+                preview.SetBounds(x0 + (LW - cw) / 2, 96, cw, previewH);
+                pnlControls.SetBounds(px, 96, W - 2 * px, panelH);
+                for (int i = 0; i < chips.Count; i++) chips[i].SetBounds(x0 - px + i * (chipW + 5), previewH + 12, chipW, 64);
+
+                // the right column: numbers, refresh rate with its info, options, buttons; the gaps between the groups grow a little with the height
+                int g = Math.Max(18, Math.Min(44, (panelH - (74 + 148 + 128 + 110)) / 3));
+                int rx = x0 + LW + 36 - px;
+                int y = 0;
+                lblW.SetBounds(rx, y, half, 18);
+                numW.SetBounds(rx, y + 22, half, 52);
+                lblX.SetBounds(rx + half, y + 22, 32, 52);
+                lblH.SetBounds(rx + half + 32, y, half, 18);
+                numH.SetBounds(rx + half + 32, y + 22, half, 52);
+                y += 74 + g;
+                lblHz.SetBounds(rx, y, RW, 18);
+                numHz.SetBounds(rx, y + 22, half, 52);
+                lblInfo.SetBounds(rx, y + 88, RW, 60);
+                y += 148 + g;
+                chkStretch.SetBounds(rx, y, RW, 28);
+                chkDisable.SetBounds(rx, y + 34, RW, 46);
+                chkReenable.SetBounds(rx + 28, y + 84, RW - 28, 44);
+                y += 128 + g;
+                int bx = x0 + LW + 36, by = 96 + y;                           // the buttons are on the window, not on the panel: absolute
+                int restoreW = (int)((RW - 10) * 0.6);
+                btnApply.SetBounds(bx, by, RW, 52);
+                btnRestore.SetBounds(bx, by + 62, restoreW, 48);
+                btnClose.SetBounds(bx + restoreW + 10, by + 62, RW - restoreW - 10, 48);
+
+                lblHint.SetBounds(x0, 96 + panelH + 10, LW, 22);
+                int logY = 96 + panelH + 44;
+                int logH = Math.Max(100, H - 32 - logY);
+                cardLog.SetBounds(x0, logY, CW, logH);
+                log.SetBounds(16, 40, CW - 32, Math.Max(40, logH - 54));
+            }
         }
 
         // F11 or the button in the header: the window covers the whole monitor it is on; Esc or the same key brings it back
@@ -1541,6 +2105,7 @@ namespace CustomRes
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.F11) { ToggleFullScreen(); return true; }
+            if (keyData == Keys.Escape && picker.Visible) { picker.CloseView(); return true; }
             if (keyData == Keys.Escape && fullScreen) { ToggleFullScreen(); return true; }
             return base.ProcessCmdKey(ref msg, keyData);
         }
@@ -1625,6 +2190,7 @@ namespace CustomRes
             tips.SetToolTip(btnMin, L("Minimize", "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C"));
             tips.SetToolTip(btnFull, L("Full screen (F11)", "\u041F\u043E\u043B\u043D\u044B\u0439 \u044D\u043A\u0440\u0430\u043D (F11)"));
             tips.SetToolTip(btnX, L("Close", "\u0417\u0430\u043A\u0440\u044B\u0442\u044C"));
+            picker.Invalidate();
             chkStretch.Text = Strings.T("gui_stretch");
             chkDisable.Text = Strings.T("gui_disable");
             chkReenable.Text = Strings.T("gui_reenable");
@@ -1676,6 +2242,7 @@ namespace CustomRes
         {
             int nw = (original != null) ? original.W : 0, nh = (original != null) ? original.H : 0;
             preview.SetState(nw, nh, (int)numW.Value, (int)numH.Value, chkStretch.Checked);
+            if (!building && Math.Abs(preview.Aspect - layoutAspect) > 0.002f) LayoutAll();          // another monitor shape: another card
         }
 
         private void SetBusy(bool value)
@@ -1690,6 +2257,7 @@ namespace CustomRes
         private void Append(string text, int level)
         {
             if (InvokeRequired) { BeginInvoke(new Action<string, int>(Append), text, level); return; }
+            if (level == Engine.LvHead && busyView.Visible) busyView.SetStep(text.Trim());
             Color c;
             switch (level)
             {
@@ -1700,6 +2268,7 @@ namespace CustomRes
                 case Engine.LvDim: c = Theme.Dim; break;
                 default: c = Color.FromArgb(200, 202, 210); break;
             }
+            busyView.AddLine(text, c);
             log.SelectionStart = log.TextLength;
             log.SelectionLength = 0;
             log.SelectionColor = c;
@@ -1708,12 +2277,28 @@ namespace CustomRes
             log.ScrollToCaret();
         }
 
+        // the calm panel with the current step on it, for as long as the display is being switched
+        private void ShowBusy(string title)
+        {
+            picker.CloseView();
+            if (title != null) { busyView.SetTitle(title); busyView.SetStep(""); busyView.Clear(); }
+            busyView.Present();
+        }
+
+        private void HideBusy()
+        {
+            busyView.Dismiss();
+        }
+
         private bool ConfirmKeep(string question, int seconds)
         {
             bool keep = false;
             Invoke((MethodInvoker)delegate
             {
+                bool wasUp = busyView.Visible;
+                HideBusy();                                          // the picture is judged with the normal window behind the dialog
                 using (KeepForm f = new KeepForm(question, seconds)) { keep = (f.ShowDialog(this) == DialogResult.Yes); }
+                if (wasUp) ShowBusy(null);                           // saving or rolling back switches the display again
             });
             return keep;
         }
@@ -1723,7 +2308,10 @@ namespace CustomRes
             bool yes = false;
             Invoke((MethodInvoker)delegate
             {
+                bool wasUp = busyView.Visible;
+                HideBusy();
                 yes = DarkDialog.Ask(this, Strings.T("gui_confirm_title"), question, L("Yes", "Да"), L("No", "Нет"));
+                if (wasUp) ShowBusy(null);
             });
             return yes;
         }
@@ -1759,6 +2347,7 @@ namespace CustomRes
             cb.AskYesNo = AskYesNo;
 
             SetBusy(true);
+            ShowBusy(L("Applying the resolution", "Применяю разрешение"));
             Append("", Engine.LvNormal);
             Append(Strings.T("gui_busy"), Engine.LvHead);
             System.Threading.Thread th = new System.Threading.Thread(delegate()
@@ -1768,6 +2357,7 @@ namespace CustomRes
                 catch (Exception ex) { r = new RunResult(); r.Status = ex.Message; }
                 BeginInvoke((MethodInvoker)delegate
                 {
+                    HideBusy();
                     Append("", Engine.LvNormal);
                     Append(Strings.T("gui_finished", r.Status), r.Success ? Engine.LvOk : Engine.LvWarn);
                     SetBusy(false);
@@ -1783,12 +2373,14 @@ namespace CustomRes
         {
             if (busy) return;
             SetBusy(true);
+            ShowBusy(L("Switching the monitors back on", "Включаю мониторы обратно"));
             Action<string, int> lg = Append;
             System.Threading.Thread th = new System.Threading.Thread(delegate()
             {
                 try { platform.RestoreMonitors(lg); } catch (Exception ex) { Append(ex.Message, Engine.LvErr); }
                 BeginInvoke((MethodInvoker)delegate
                 {
+                    HideBusy();
                     Append(Strings.T("gui_restore_done"), Engine.LvOk);
                     SetBusy(false);
                 });
