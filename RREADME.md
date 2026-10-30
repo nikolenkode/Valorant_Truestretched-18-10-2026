@@ -1,4 +1,4 @@
-<p align="center"><a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
+<p align="center"><a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/releases/download/VALORANT/CustomRes.exe"><img src="icon.png" alt="NVIDIA Custom Resolution" width="128"></a></p>
 
 # VALORANT Custom Resolution
 
@@ -7,11 +7,11 @@
 [English](README.md) | **Русский**
 
 <p align="center"> 
-  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/CustomRes.exe">
+  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/releases/download/VALORANT/CustomRes.exe">
     <img src="btn-gui-en.svg" alt="Download CustomRes.exe" width="320" height="64">
   </a>&nbsp;&nbsp; 
 
-  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/raw/main/true_stratched_val.bat">
+  <a href="https://github.com/nikolenkode/Valorant_Truestretched-18-10-2026/releases/download/VALORANT/true_stratched_val.bat">
     <img src="btn-cli-en.svg" alt="Download the console version, true_stratched_val.bat" width="320" height="64">
   </a> 
 </p>
